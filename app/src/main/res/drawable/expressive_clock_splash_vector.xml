@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1254"
+    android:viewportHeight="1254">
+
+    <!-- The two supplied circle layers are one attached animated assembly. -->
+    <group
+        android:name="outer_group"
+        android:pivotX="625.5"
+        android:pivotY="633"
+        android:scaleX="0"
+        android:scaleY="0">
+
+        <!-- Light-blue rear/background circle. -->
+        <path
+            android:name="back_circle"
+            android:fillColor="#BEE1F7"
+            android:pathData="M 439.5,657.5 C 439.5,554.7750365372 522.7750365372,471.5 625.5,471.5 C 728.2249634628,471.5 811.5,554.7750365372 811.5,657.5 C 811.5,760.2249634628 728.2249634628,843.5 625.5,843.5 C 522.7750365372,843.5 439.5,760.2249634628 439.5,657.5 Z" />
+
+        <!-- Blue foreground clock-face circle. -->
+        <path
+            android:name="face_circle"
+            android:pathData="M 429.5,607.5 C 429.5,499.2521890392 517.2521890392,411.5 625.5,411.5 C 733.7478109608,411.5 821.5,499.2521890392 821.5,607.5 C 821.5,715.7478109608 733.7478109608,803.5 625.5,803.5 C 517.2521890392,803.5 429.5,715.7478109608 429.5,607.5 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="625.5"
+                    android:startY="411.5"
+                    android:endX="625.5"
+                    android:endY="803.5">
+                    <item android:offset="0.00" android:color="#4E7CBF" />
+                    <item android:offset="0.50" android:color="#708BC7" />
+                    <item android:offset="1.00" android:color="#9499CC" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+
+    <!-- Separate hand groups so each can start at 12 and rotate independently. -->
+    <group
+        android:name="hour_hand"
+        android:pivotX="623.0"
+        android:pivotY="623.0"
+        android:rotation="0"
+        android:alpha="0">
+        <path
+            android:name="hour_hand_path"
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="36.0"
+            android:strokeLineCap="round"
+            android:pathData="M 623.0,623.0 L 623.0,527.0" />
+    </group>
+
+    <group
+        android:name="minute_hand"
+        android:pivotX="623.0"
+        android:pivotY="623.0"
+        android:rotation="0"
+        android:alpha="0">
+        <path
+            android:name="minute_hand_path"
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="36.0"
+            android:strokeLineCap="round"
+            android:pathData="M 623.0,623.0 L 623.0,486.0" />
+    </group>
+
+    <group
+        android:name="center_hub"
+        android:pivotX="623.0"
+        android:pivotY="623.0"
+        android:scaleX="0"
+        android:scaleY="0">
+        <path
+            android:name="center_hub_path"
+            android:fillColor="#FFFFFF"
+            android:pathData="M 594.0,623.0 C 594.0,606.9837422558 606.9837422558,594.0 623.0,594.0 C 639.0162577442,594.0 652.0,606.9837422558 652.0,623.0 C 652.0,639.0162577442 639.0162577442,652.0 623.0,652.0 C 606.9837422558,652.0 594.0,639.0162577442 594.0,623.0 Z" />
+    </group>
+
+</vector>

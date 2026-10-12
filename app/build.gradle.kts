@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "app.materialclock"
+    namespace = "app.expressiveclock"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "app.materialclock"
+        applicationId = "app.expressiveclock"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -116,12 +116,16 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.graphics.shapes)
+
+    implementation("com.google.android.play:app-update:2.1.0")
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

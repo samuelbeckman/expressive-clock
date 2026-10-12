@@ -24,5 +24,5 @@
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_clock_placeholder"
     android:description="@string/widget_description"
-    android:configure="app.materialclock.widget.ClockWidgetConfigActivity"
+    android:configure="app.expressiveclock.widget.ClockWidgetConfigActivity"
     android:widgetFeatures="reconfigurable" />

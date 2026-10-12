@@ -87,7 +87,7 @@ PALETTES = [
     ("FUCHSIA", "Fuchsia", 0xFFD81B7C, {}, {}),
 ]
 
-HEADER = '''package app.materialclock.ui.theme
+HEADER = '''package app.expressiveclock.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme

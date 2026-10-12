@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Clock</string>
+    <string name="app_name">Expressive Clock</string>
     <string name="widget_description">An analog clock you can shape</string>
+    <string name="accessibility_service_description">Displays active timer and stopwatch controls over system bars and camera cutouts.</string>
 </resources>

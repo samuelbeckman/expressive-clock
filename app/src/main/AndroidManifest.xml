@@ -31,6 +31,12 @@
     <!-- Puts the dismiss screen in front of a locked phone. Degrades to a heads-up banner. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
+    <!-- System overlay permission for active Timer/Stopwatch Dynamic Island capsule. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Battery optimization exemption for background timers and alarms. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
         android:name=".ClockApplication"
         android:allowBackup="true"
@@ -46,19 +52,49 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:icon="@mipmap/ic_launcher_chooser"
+            android:roundIcon="@mipmap/ic_launcher_chooser"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.MaterialClock">
+            android:theme="@style/Theme.MaterialClock" />
+
+        <activity-alias
+            android:name=".LauncherActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_launcher"
+            android:roundIcon="@mipmap/ic_launcher_launcher"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- So "set an alarm for 7" from Assistant or another app lands here. -->
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ShowAlarmsActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_chooser"
+            android:roundIcon="@mipmap/ic_launcher_chooser"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.SHOW_ALARMS" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
+            <intent-filter>
+                <action android:name="android.intent.action.SET_ALARM" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SHOW_TIMERS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SET_TIMER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
 
         <!--
           The ringing screen. Its own task, excluded from recents: it is a modal interruption, not
@@ -81,6 +117,23 @@
             android:name=".alarm.AlarmService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".overlay.OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".overlay.OverlayAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
 
         <receiver
             android:name=".alarm.AlarmReceiver"
@@ -145,5 +198,36 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".quicksettings.AlarmTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_alarm"
+            android:label="Alarms"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".quicksettings.TimerTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_timer"
+            android:label="Timers"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".quicksettings.StopwatchTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_stopwatch"
+            android:label="Stopwatch"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>

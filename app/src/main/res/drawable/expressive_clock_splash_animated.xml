@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/expressive_clock_splash_vector">
+
+    <target
+        android:name="outer_group"
+        android:animation="@animator/splash_outer_pop" />
+
+    <target
+        android:name="hour_hand"
+        android:animation="@animator/splash_hour_reveal_rotate" />
+
+    <target
+        android:name="minute_hand"
+        android:animation="@animator/splash_minute_reveal_rotate" />
+
+    <target
+        android:name="center_hub"
+        android:animation="@animator/splash_hub_pop" />
+
+</animated-vector>
