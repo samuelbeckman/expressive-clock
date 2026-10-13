@@ -99,7 +99,7 @@
         <!--
           The ringing screen. Its own task, excluded from recents: it is a modal interruption, not
           a place you navigate back to, and finding a dead alarm screen in the switcher an hour
-          later is confusing. showOnLockScreen + turnScreenOn are set in code as well, because the
+          later is confusing. showWhenLocked + turnScreenOn are set in code as well, because the
           manifest attributes alone do not turn a dark display on.
         -->
         <activity
@@ -107,11 +107,10 @@
             android:exported="false"
             android:launchMode="singleInstance"
             android:excludeFromRecents="true"
-            android:showOnLockScreen="true"
             android:turnScreenOn="true"
             android:showWhenLocked="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
-            android:theme="@style/Theme.MaterialClock" />
+            android:theme="@style/Theme.MaterialClock.App" />
 
         <service
             android:name=".alarm.AlarmService"
@@ -188,7 +187,7 @@
             android:name=".widget.ClockWidgetConfigActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
-            android:theme="@style/Theme.MaterialClock">
+            android:theme="@style/Theme.MaterialClock.App">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>

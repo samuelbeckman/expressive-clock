@@ -1,6 +1,7 @@
 package app.expressiveclock.ui.screens
 
 import android.app.Activity
+import android.app.NotificationManager
 import android.Manifest
 import android.content.ComponentName
 import android.content.Context
@@ -39,6 +40,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.outlined.AccessibilityNew
+import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Button
@@ -115,11 +117,13 @@ fun OnboardingScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var isNotificationsGranted by remember { mutableStateOf(checkNotificationsGranted(context)) }
+    var isFullScreenIntentGranted by remember { mutableStateOf(checkFullScreenIntentGranted(context)) }
     var isBackgroundGranted by remember { mutableStateOf(checkBackgroundGranted(context)) }
     var isAccessibilityGranted by remember { mutableStateOf(checkAccessibilityGranted(context)) }
 
     fun refreshStates() {
         isNotificationsGranted = checkNotificationsGranted(context)
+        isFullScreenIntentGranted = checkFullScreenIntentGranted(context)
         isBackgroundGranted = checkBackgroundGranted(context)
         isAccessibilityGranted = checkAccessibilityGranted(context)
     }
@@ -205,7 +209,39 @@ fun OnboardingScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // Card 2: Background operation
+        // Card 2: Full-screen alarms
+        OnboardingSetupCard(
+            title = "Full-screen alarms",
+            description = "Allows ringing alarms to display full-screen over your lock screen. If unavailable, alarms will display as high-priority heads-up notifications with dismiss and snooze controls.",
+            icon = Icons.Outlined.Alarm,
+            iconBgColor = Color(0xFFFFDCCA),
+            iconTintColor = Color(0xFF8B4A00),
+            buttonBgColor = Color(0xFFFFDCCA),
+            buttonTextColor = Color(0xFF3B1A00),
+            isGranted = isFullScreenIntentGranted,
+            onSetup = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    launchIntent(context, intent) {
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                    }
+                } else {
+                    launchIntent(
+                        context,
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                    )
+                }
+            },
+        )
+
+        Spacer(Modifier.height(14.dp))
+
+        // Card 3: Background operation
         OnboardingSetupCard(
             title = "Background operation",
             description = "Prevent Android from restricting Expressive Clock so your alarms, timers and stopwatch keep running reliably.",
@@ -230,10 +266,10 @@ fun OnboardingScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // Card 3: Accessibility (optional)
+        // Card 4: Accessibility (optional)
         OnboardingSetupCard(
             title = "Accessibility (optional)",
-            description = "Enable the Dynamic Island to show active timers and stopwatch controls over other apps, with interactive controls (e.g. pause, lap, dismiss).",
+            description = "Enable the Dynamic Island to show active timers and stopwatch controls over other apps, with interactive controls (e.g. pause, lap, dismiss). No personal data or screen content is read or collected.",
             icon = Icons.Outlined.AccessibilityNew,
             iconBgColor = Color(0xFFD7E3FF),
             iconTintColor = Color(0xFF13428B),
@@ -291,6 +327,33 @@ fun OnboardingScreen(
                         fontSize = 15.sp,
                     ),
                     color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        // Privacy Policy Link
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            TextButton(
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://samuelbeckman.github.io/expressive-clock/privacy-policy.html"),
+                    )
+                    runCatching { context.startActivity(intent) }
+                },
+                modifier = Modifier.padding(vertical = 4.dp),
+            ) {
+                Text(
+                    text = "Privacy policy",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 14.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -415,6 +478,15 @@ private fun checkNotificationsGranted(context: Context): Boolean {
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     } else {
         NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+}
+
+private fun checkFullScreenIntentGranted(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.canUseFullScreenIntent() ?: true
+    } else {
+        true
     }
 }
 
