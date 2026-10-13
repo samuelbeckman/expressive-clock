@@ -575,8 +575,12 @@ fun SettingsScreen(
             title = { Text("Accessibility service required") },
             text = {
                 Text(
-                    "To display active timer countdowns and stopwatch controls over other apps, " +
-                        "turn on the Expressive Clock Accessibility service in system settings.",
+                    "Expressive Clock uses Android's AccessibilityService API only to display " +
+                        "active timer countdowns and stopwatch controls over other apps and system bars. " +
+                        "The service does not read screen content, collect personal or sensitive user data, " +
+                        "or share data. If you choose Continue, Android will open Accessibility settings " +
+                        "where you can enable the service. This access is optional and is used for the " +
+                        "Dynamic Island overlay feature.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             },
@@ -593,12 +597,17 @@ fun SettingsScreen(
                         }
                     },
                 ) {
-                    Text("Allow")
+                    Text("Continue")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAccessibilityPromptDialog = false }) {
-                    Text("Cancel")
+                TextButton(
+                    onClick = {
+                        showAccessibilityPromptDialog = false
+                        onChange { it.copy(theme = it.theme.copy(dynamicIsland = false)) }
+                    },
+                ) {
+                    Text("Not now")
                 }
             },
         )
