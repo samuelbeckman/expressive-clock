@@ -470,6 +470,22 @@ fun SettingsScreen(
                 )
                 SettingsDivider()
                 SettingsNavigateRow(
+                    icon = Icons.Outlined.PrivacyTip,
+                    title = "Privacy policy",
+                    subtitle = "Read how Expressive Clock handles your data",
+                    onClick = {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://samuelbeckman.github.io/expressive-clock/privacy-policy.html"),
+                        )
+                        runCatching { context.startActivity(intent) }
+                            .onFailure {
+                                Toast.makeText(context, "Couldn't open the privacy policy.", Toast.LENGTH_SHORT).show()
+                            }
+                    },
+                )
+                SettingsDivider()
+                SettingsNavigateRow(
                     icon = Icons.Outlined.Info,
                     title = "App version",
                     subtitle = "Clock ${app.expressiveclock.BuildConfig.VERSION_NAME}",
