@@ -237,11 +237,8 @@ object OverlayManager {
             overlayStopwatchState = sw
             overlayIsExitingState = false
             overlayExitRequestId = 0
-            if (!isCalibrationPreviewing) {
-                runCatching {
-                    OverlayService.start(context)
-                }
-            }
+            // The AccessibilityService hosts the overlay window. Do not use a mediaPlayback
+            // foreground service just to keep this overlay process alive.
             showOrUpdateOverlay(context)
         } else {
             if (isOverlayAttached && !overlayIsExitingState) {
@@ -741,11 +738,7 @@ object OverlayManager {
                 }
             }
 
-            appContext?.let {
-                runCatching {
-                    OverlayService.stop(it)
-                }
-            }
+
         } finally {
             isOverlayBeingRemoved = false
         }
