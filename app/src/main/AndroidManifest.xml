@@ -130,12 +130,12 @@
         </service>
 
         <receiver
-            android:name=".alarm.AlarmReceiver"
+            android:name=".alarm.BootReceiver"
             android:exported="false"
             android:directBootAware="true">
             <intent-filter>
                 <!--
-                  All four mean the same thing to this app: every AlarmManager entry it owns is now
+                  All mean the same thing to this app: every AlarmManager entry it owns is now
                   gone or wrong. LOCKED_BOOT_COMPLETED as well as BOOT_COMPLETED so an alarm can be
                   rearmed before the user has unlocked after a reboot.
                 -->
@@ -146,6 +146,10 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:exported="false" />
 
         <receiver android:name=".alarm.ClockActionReceiver" android:exported="false" />
 
@@ -161,6 +165,7 @@
         -->
         <receiver
             android:name=".widget.ClockWidgetProvider"
+            android:label="@string/analog_widget_label"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -172,6 +177,22 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/clock_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.DigitalClockWidgetProvider"
+            android:label="@string/digital_widget_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/digital_clock_widget_info" />
         </receiver>
 
         <!-- Receives the launcher's pin callback, which carries the new widget's id. -->

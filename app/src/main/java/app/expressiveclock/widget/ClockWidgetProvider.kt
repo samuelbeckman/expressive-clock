@@ -31,7 +31,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
             // and calls onUpdate *before* the user has chosen anything. Leave the placeholder; do
             // not seed a default the user never picked.
             ids.forEach { ClockWidgetRenderer.update(context, manager, it) }
-            store.sweepWidgetConfigs(manager.getAppWidgetIds(component(context)))
+            store.sweepWidgetConfigs(allPlacedWidgetIds(context))
         }
     }
 
@@ -107,7 +107,14 @@ class ClockWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        /** The ids of every widget this app currently has on a home screen. */
+        /** The ids of every widget this app currently has on a home screen across both providers. */
+        fun allPlacedWidgetIds(context: Context): IntArray {
+            val manager = AppWidgetManager.getInstance(context)
+            val analog = manager.getAppWidgetIds(component(context))
+            val digital = manager.getAppWidgetIds(DigitalClockWidgetProvider.component(context))
+            return analog + digital
+        }
+
         fun placedIds(context: Context): IntArray =
             AppWidgetManager.getInstance(context).getAppWidgetIds(component(context))
     }

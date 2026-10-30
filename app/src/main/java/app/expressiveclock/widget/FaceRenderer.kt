@@ -12,6 +12,7 @@ import app.expressiveclock.data.MinorIndex
 import app.expressiveclock.data.NumeralLayout
 import app.expressiveclock.data.NumeralSystem
 import app.expressiveclock.data.WidgetConfig
+import app.expressiveclock.data.WidgetFontFamily
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
@@ -164,14 +165,17 @@ object FaceRenderer {
             if (config.indexSet == IndexSet.ALL_TWELVE) DialGeometry.MIN_RING_FOR_TWELVE else 0f,
         )
 
+        val widthVal = if (config.analogFont == WidgetFontFamily.GOOGLE_SANS) 25f else 100f
+
         // Measure the widest label the system can produce at cap height 1, so the clamp is against
         // real glyphs rather than an assumption about how wide a numeral is.
         val probe = TextInk.numeralPaint(
             context, 100f,
-            width = config.numeralWidth.axis,
-            weight = config.numeralWeight.axis,
+            width = widthVal,
+            weight = config.analogWeight.weightInt,
             roundness = config.numeralRound.axis,
             system = config.numerals,
+            fontFamily = config.analogFont,
         )
         val widest = TextInk.widest(config.numerals)
         val probeInk = TextInk.ink(probe, widest)
@@ -185,10 +189,11 @@ object FaceRenderer {
 
         val paint = TextInk.numeralPaint(
             context, 100f,
-            width = config.numeralWidth.axis,
-            weight = config.numeralWeight.axis,
+            width = widthVal,
+            weight = config.analogWeight.weightInt,
             roundness = config.numeralRound.axis,
             system = config.numerals,
+            fontFamily = config.analogFont,
         ).apply {
             color = colours.onFace
             textSize = TextInk.sizeForCap(this, widest, capPx)
@@ -243,7 +248,7 @@ object FaceRenderer {
         }
     }
 
-    /** A point at [angleDeg] either on a true circle or on the outline itself. */
+    /** A point at [angleDeg] on the clock face dial. */
     private fun ringPoint(
         outline: FaceOutline,
         config: WidgetConfig,
@@ -253,19 +258,7 @@ object FaceRenderer {
         inset: Float = 0f,
     ): Pair<Float, Float> {
         val a = Math.toRadians(angleDeg.toDouble()).toFloat()
-        return when (config.numeralLayout) {
-            NumeralLayout.CIRCLE_UPRIGHT -> {
-                val rr = ringFraction * r - inset
-                outline.cx + sin(a) * rr to outline.cy - cos(a) * rr
-            }
-            else -> {
-                val hit = outline.castRay(a)
-                if (hit == null) {
-                    outline.cx to outline.cy
-                } else {
-                    hit.x + hit.nx * inset to hit.y + hit.ny * inset
-                }
-            }
-        }
+        val rr = ringFraction * r - inset
+        return outline.cx + sin(a) * rr to outline.cy - cos(a) * rr
     }
 }

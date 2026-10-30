@@ -127,9 +127,13 @@ fun facePath(
 ): Path {
     val uniform = fit == FitMode.UNIFORM
     return when (shape) {
-        FaceShape.CIRCLE ->
+        FaceShape.CIRCLE -> {
+            val d = min(w, h)
+            val l = (w - d) / 2f
+            val t = (h - d) / 2f
             RoundedPolygon.circle(numVertices = 24, radius = 0.5f, centerX = 0.5f, centerY = 0.5f)
-                .fillRect(0f, 0f, w, h, uniform, out)
+                .fillRect(l, t, l + d, t + d, uniform = true, out)
+        }
 
         FaceShape.SQUARE_SHARP ->
             RoundedPolygon.rectangle(w, h, CornerRounding.Unrounded, centerX = w / 2f, centerY = h / 2f)

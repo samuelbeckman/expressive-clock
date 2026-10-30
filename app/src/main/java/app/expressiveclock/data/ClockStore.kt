@@ -294,6 +294,19 @@ private fun parseAlarms(s: String): List<Alarm> = runCatching {
 
 private fun encodeWidgetConfig(c: WidgetConfig) = JSONObject()
     .put("v", 1)
+    .put("type", c.type.name)
+    .put("digitalLayout", c.digitalLayout.name)
+    .put("digitalFont", c.digitalFont.name)
+    .put("digitalWeight", c.digitalWeight.name)
+    .put("showSeconds", c.showSeconds)
+    .put("digitalBg", c.digitalBackground.name)
+    .put("showDate", c.showDate)
+    .put("showDayOfWeek", c.showDayOfWeek)
+    .apply { c.digitalHourColor?.let { put("digHourCol", it) } }
+    .apply { c.digitalColonColor?.let { put("digColonCol", it) } }
+    .apply { c.digitalMinuteColor?.let { put("digMinCol", it) } }
+    .apply { c.digitalDayColor?.let { put("digDayCol", it) } }
+    .apply { c.digitalDateColor?.let { put("digDateCol", it) } }
     .put("shape", c.shape.name)
     .put("pill", c.pillOrientation.name)
     .put("fit", c.fit.name)
@@ -302,10 +315,13 @@ private fun encodeWidgetConfig(c: WidgetConfig) = JSONObject()
     .put("hour", c.hourHand.name)
     .put("minute", c.minuteHand.name)
     .put("second", c.secondHand.name)
+    .apply { c.analogSecondHandColor?.let { put("anSecHandCol", it) } }
     .put("pin", c.centrePin)
     .put("numerals", c.numerals.name)
     .put("indices", c.indexSet.name)
     .put("minor", c.minorIndices.name)
+    .put("analogFont", c.analogFont.name)
+    .put("analogWeight", c.analogWeight.name)
     .put("numeralSize", c.numeralSize.name)
     .put("numeralLayout", c.numeralLayout.name)
     .put("numeralWidth", c.numeralWidth.name)
@@ -315,6 +331,8 @@ private fun encodeWidgetConfig(c: WidgetConfig) = JSONObject()
     .put("datePos", c.datePosition.name)
     .put("colour", c.colour.name)
     .put("palette", c.palette.name)
+    .put("swatch", c.swatch.name)
+    .apply { c.analogPrimaryColor?.let { put("anPrimaryCol", it) } }
     .toString()
 
 /**
@@ -327,7 +345,31 @@ private fun encodeWidgetConfig(c: WidgetConfig) = JSONObject()
 private fun parseWidgetConfig(s: String): WidgetConfig = runCatching {
     val o = JSONObject(s)
     WidgetConfig(
-        shape = enumOr(o.optString("shape"), FaceShape.CIRCLE),
+        type = enumOr(o.optString("type"), WidgetType.ANALOG),
+        digitalLayout = enumOr(o.optString("digitalLayout"), DigitalLayout.STACKED).let {
+            if (it == DigitalLayout.TIME_ONLY) DigitalLayout.HORIZONTAL else it
+        },
+        digitalFont = enumOr(o.optString("digitalFont"), WidgetFontFamily.GOOGLE_SANS),
+        digitalWeight = enumOr(
+            o.optString("digitalWeight"),
+            when (enumOr(o.optString("numeralWidth"), NumeralWidth.NORMAL)) {
+                NumeralWidth.CONDENSED -> DigitalTypefaceWeight.THIN
+                NumeralWidth.NORMAL -> DigitalTypefaceWeight.REGULAR
+                else -> DigitalTypefaceWeight.BOLD
+            },
+        ),
+        showSeconds = o.optBoolean("showSeconds", false),
+        digitalBackground = enumOr(o.optString("digitalBg"), DigitalBackground.FILLED),
+        showDate = o.optBoolean("showDate", true),
+        showDayOfWeek = o.optBoolean("showDayOfWeek", true),
+        digitalHourColor = o.optLong("digHourCol").takeIf { it != 0L },
+        digitalColonColor = o.optLong("digColonCol").takeIf { it != 0L },
+        digitalMinuteColor = o.optLong("digMinCol").takeIf { it != 0L },
+        digitalDayColor = o.optLong("digDayCol").takeIf { it != 0L },
+        digitalDateColor = o.optLong("digDateCol").takeIf { it != 0L },
+        shape = enumOr(o.optString("shape"), FaceShape.CIRCLE).let {
+            if (it == FaceShape.SQUARE_SHARP) FaceShape.ROUNDED_SQUARE else it
+        },
         pillOrientation = enumOr(o.optString("pill"), PillOrientation.HORIZONTAL),
         fit = enumOr(o.optString("fit"), FitMode.STRETCH),
         faceFill = enumOr(o.optString("fill"), FaceFill.CONTAINER),
@@ -335,10 +377,13 @@ private fun parseWidgetConfig(s: String): WidgetConfig = runCatching {
         hourHand = enumOr(o.optString("hour"), HandStyle.BATON),
         minuteHand = enumOr(o.optString("minute"), HandStyle.BATON),
         secondHand = enumOr(o.optString("second"), HandStyle.OFF),
+        analogSecondHandColor = o.optLong("anSecHandCol").takeIf { it != 0L },
         centrePin = o.optBoolean("pin", true),
         numerals = enumOr(o.optString("numerals"), NumeralSystem.ARABIC),
         indexSet = enumOr(o.optString("indices"), IndexSet.QUARTERS),
-        minorIndices = enumOr(o.optString("minor"), MinorIndex.DOTS),
+        minorIndices = enumOr(o.optString("minor"), MinorIndex.NONE),
+        analogFont = enumOr(o.optString("analogFont"), WidgetFontFamily.GOOGLE_SANS),
+        analogWeight = enumOr(o.optString("analogWeight"), DigitalTypefaceWeight.REGULAR),
         numeralSize = enumOr(o.optString("numeralSize"), NumeralSize.MEDIUM),
         numeralLayout = enumOr(o.optString("numeralLayout"), NumeralLayout.CIRCLE_UPRIGHT),
         numeralWidth = enumOr(o.optString("numeralWidth"), NumeralWidth.NORMAL),
@@ -348,6 +393,8 @@ private fun parseWidgetConfig(s: String): WidgetConfig = runCatching {
         datePosition = enumOr(o.optString("datePos"), DatePosition.FOUR_THIRTY),
         colour = enumOr(o.optString("colour"), ColourSource.FOLLOW_APP),
         palette = enumOr(o.optString("palette"), Palette.CONCEPT),
+        swatch = enumOr(o.optString("swatch"), WidgetColorSwatch.BLUE),
+        analogPrimaryColor = o.optLong("anPrimaryCol").takeIf { it != 0L },
     )
 }.getOrDefault(WidgetConfig())
 

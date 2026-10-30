@@ -11,6 +11,8 @@ build/
 .cxx
 local.properties
 keystore.properties
+app/keystore/
 *.jks
 *.p12
+*.keystore
 .superpowers/

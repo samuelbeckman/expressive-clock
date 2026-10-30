@@ -50,6 +50,14 @@ object WidgetColours {
         val amoled = config.colour == ColourSource.FOLLOW_APP && appSettings.theme.amoledBlack
         val scheme = if (dark && amoled) base.toAmoledBlack() else base
 
+        val primaryAccent = if (config.analogPrimaryColor != null) {
+            config.analogPrimaryColor.toInt()
+        } else if (config.colour == ColourSource.PALETTE) {
+            config.swatch.colorArgb.toInt()
+        } else {
+            scheme.primary.toArgb()
+        }
+
         // Seven roles, not one accent repeated.
         //
         // Every one of these is drawn on the *neutral* surface family, and that is deliberate:
@@ -72,10 +80,10 @@ object WidgetColours {
             onFace = scheme.onSurface.toArgb(),
             minor = scheme.onSurfaceVariant.toArgb(),
             outline = scheme.outlineVariant.toArgb(),
-            accent = scheme.primary.toArgb(),
-            hourHand = scheme.primary.toArgb(),
+            accent = primaryAccent,
+            hourHand = primaryAccent,
             minuteHand = scheme.tertiary.toArgb(),
-            secondHand = scheme.secondary.toArgb(),
+            secondHand = config.analogSecondHandColor?.toInt() ?: scheme.secondary.toArgb(),
             // Neutral, because the pin sits on top of all three hands and matching any one of them
             // would make that hand look severed at the centre.
             pin = scheme.onSurface.toArgb(),

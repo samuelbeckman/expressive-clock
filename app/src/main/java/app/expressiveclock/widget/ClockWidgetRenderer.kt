@@ -19,6 +19,7 @@ import app.expressiveclock.data.DateMode
 import app.expressiveclock.data.DatePosition
 import app.expressiveclock.data.HandStyle
 import app.expressiveclock.data.WidgetConfig
+import app.expressiveclock.data.WidgetType
 import java.io.ByteArrayOutputStream
 import java.util.Locale
 import kotlin.math.cos
@@ -39,6 +40,10 @@ object ClockWidgetRenderer {
     suspend fun update(context: Context, manager: AppWidgetManager, appWidgetId: Int) {
         val store = ClockStore(context)
         val config = store.widgetConfigNow(appWidgetId) ?: return
+        if (config.type == WidgetType.DIGITAL) {
+            DigitalClockWidgetRenderer.update(context, manager, appWidgetId)
+            return
+        }
         val settings = store.settingsNow()
         val options = manager.getAppWidgetOptions(appWidgetId)
 

@@ -38,16 +38,21 @@ object WidgetEntryPoints {
      * the success callback opens the editor itself. The callback carries the new
      * `EXTRA_APPWIDGET_ID`, which is the only place that id is ever offered to us.
      */
-    fun requestPin(context: Context) {
+    fun requestPin(context: Context, isDigital: Boolean = false) {
         if (!canPin(context)) return
         val callback = PendingIntent.getBroadcast(
             context,
-            0,
+            if (isDigital) 1 else 0,
             Intent(context, WidgetPinnedReceiver::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
+        val providerComponent = if (isDigital) {
+            DigitalClockWidgetProvider.component(context)
+        } else {
+            ClockWidgetProvider.component(context)
+        }
         AppWidgetManager.getInstance(context).requestPinAppWidget(
-            ClockWidgetProvider.component(context),
+            providerComponent,
             null,
             callback,
         )
