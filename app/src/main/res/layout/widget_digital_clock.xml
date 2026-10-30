@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/background_shape"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitCenter"
+        android:importantForAccessibility="no" />
+
+    <!-- Horizontal Containers -->
+    <include
+        android:id="@+id/horizontal_flex"
+        layout="@layout/widget_digital_horizontal_flex"
+        android:visibility="visible" />
+
+    <include
+        android:id="@+id/horizontal_serif"
+        layout="@layout/widget_digital_horizontal_serif"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/horizontal_monospace"
+        layout="@layout/widget_digital_horizontal_mono"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/horizontal_cursive"
+        layout="@layout/widget_digital_horizontal_cursive"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/horizontal_sans"
+        layout="@layout/widget_digital_horizontal_sans"
+        android:visibility="gone" />
+
+    <!-- Stacked Containers -->
+    <include
+        android:id="@+id/stacked_flex"
+        layout="@layout/widget_digital_stacked_flex"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/stacked_serif"
+        layout="@layout/widget_digital_stacked_serif"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/stacked_monospace"
+        layout="@layout/widget_digital_stacked_mono"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/stacked_cursive"
+        layout="@layout/widget_digital_stacked_cursive"
+        android:visibility="gone" />
+
+    <include
+        android:id="@+id/stacked_sans"
+        layout="@layout/widget_digital_stacked_sans"
+        android:visibility="gone" />
+
+</FrameLayout>

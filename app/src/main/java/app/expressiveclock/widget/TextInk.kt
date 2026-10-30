@@ -3,9 +3,12 @@ package app.expressiveclock.widget
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.Typeface
+import android.os.Build
 import androidx.core.content.res.ResourcesCompat
 import app.expressiveclock.R
 import app.expressiveclock.data.NumeralSystem
+import app.expressiveclock.data.WidgetFontFamily
 
 /**
  * Text for the widget, built on `android.graphics.Paint` with no Compose anywhere.
@@ -31,17 +34,24 @@ object TextInk {
         weight: Int = 500,
         roundness: Float = 0f,
         system: NumeralSystem = NumeralSystem.ARABIC,
+        fontFamily: WidgetFontFamily = WidgetFontFamily.GOOGLE_SANS,
     ): Paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
-        val font = when (system) {
-            // Google Sans Flex has no Arabic coverage at all: the family is served in latin,
-            // latin-ext, math, symbols, syriac, cherokee, nushu, tifinagh, canadian-aboriginal and
-            // vietnamese, and nothing else. The Eastern Arabic digits come from a ten-glyph subset
-            // of Noto Sans Arabic instead. This reference is also what stops `shrinkResources`
-            // deleting that file from a release build.
-            NumeralSystem.EASTERN_ARABIC -> R.font.noto_sans_arabic_digits
-            else -> R.font.google_sans_flex
+        typeface = when {
+            system == NumeralSystem.EASTERN_ARABIC -> ResourcesCompat.getFont(context, R.font.noto_sans_arabic_digits)
+            fontFamily == WidgetFontFamily.GOOGLE_SANS || fontFamily == WidgetFontFamily.GOOGLE_SANS_NORMAL -> ResourcesCompat.getFont(context, R.font.google_sans_flex)
+            fontFamily == WidgetFontFamily.SERIF -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                Typeface.create(Typeface.SERIF, weight, false)
+            } else {
+                Typeface.create(Typeface.SERIF, if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+            }
+            fontFamily == WidgetFontFamily.MONOSPACE -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                Typeface.create(Typeface.MONOSPACE, weight, false)
+            } else {
+                Typeface.create(Typeface.MONOSPACE, if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+            }
+            fontFamily == WidgetFontFamily.CURSIVE -> Typeface.create("cursive", Typeface.NORMAL)
+            else -> Typeface.SANS_SERIF
         }
-        typeface = ResourcesCompat.getFont(context, font)
         textSize = sizePx
         textAlign = Paint.Align.LEFT
         if (system == NumeralSystem.EASTERN_ARABIC) {

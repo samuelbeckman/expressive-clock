@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/stacked_monospace"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="2dp">
+
+    <TextClock
+        android:id="@+id/time_stacked_hours_mono"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:includeFontPadding="false"
+        android:gravity="center"
+        android:maxLines="1" />
+
+    <TextClock
+        android:id="@+id/time_stacked_minutes_mono"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:includeFontPadding="false"
+        android:gravity="center"
+        android:maxLines="1" />
+
+    <TextClock
+        android:id="@+id/date_stacked_mono"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:includeFontPadding="false"
+        android:gravity="center"
+        android:layout_marginTop="1dp"
+        android:maxLines="1" />
+</LinearLayout>

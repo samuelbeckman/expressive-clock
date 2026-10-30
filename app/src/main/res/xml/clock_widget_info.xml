@@ -11,18 +11,20 @@
   binary XML by aapt and ignored by older parsers, so no -v31 split is needed.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/analog_widget_label"
     android:minWidth="110dp"
     android:minHeight="110dp"
     android:minResizeWidth="70dp"
     android:minResizeHeight="70dp"
     android:maxResizeWidth="320dp"
     android:maxResizeHeight="320dp"
-    android:targetCellWidth="3"
-    android:targetCellHeight="3"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_clock_placeholder"
-    android:description="@string/widget_description"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/analog_widget_description"
     android:configure="app.expressiveclock.widget.ClockWidgetConfigActivity"
     android:widgetFeatures="reconfigurable" />

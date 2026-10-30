@@ -806,7 +806,7 @@ private fun AlarmTile(
     val inset = CONTENT_INSET_DP.dp
     val fit = fittedTime(meridiem = meridiem, tileWidth = tileWidth, target = inset)
     val hourCap = fit.cap
-    val meridiemFit = rememberMeridiemFit(meridiem, minutesText, hourCap, animatedWeight)
+    val meridiemFit = rememberMeridiemFit(meridiem, minutesText, hourCap, ClockFace.WEIGHT_ON)
     val timeToDays = hourCap * MERIDIEM_GAP_FRACTION - SWITCH_TOUCH_INSET_DP.dp - ALARM_DIGIT_BOTTOM_BLEED_DP.dp
     val tileHeight = inset * 2 + hourCap + timeToDays + SWITCH_ROW_VISIBLE_DP.dp
 

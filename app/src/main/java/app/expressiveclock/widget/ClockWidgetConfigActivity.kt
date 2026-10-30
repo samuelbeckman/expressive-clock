@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import app.expressiveclock.data.ClockSettings
 import app.expressiveclock.data.ClockStore
 import app.expressiveclock.data.WidgetConfig
+import app.expressiveclock.data.WidgetType
 import app.expressiveclock.ui.theme.ClockTheme
 import kotlinx.coroutines.launch
 
@@ -55,28 +56,36 @@ class ClockWidgetConfigActivity : ComponentActivity() {
             return
         }
         // The activity is exported, so anyone can launch it with any id. Only act on ids that
-        // really belong to this provider.
+        // really belong to our widget providers.
         val manager = AppWidgetManager.getInstance(this)
-        if (manager.getAppWidgetInfo(appWidgetId)?.provider != ClockWidgetProvider.component(this)) {
+        val provider = manager.getAppWidgetInfo(appWidgetId)?.provider
+        val isDigital = provider == DigitalClockWidgetProvider.component(this)
+        val isAnalog = provider == ClockWidgetProvider.component(this)
+
+        if (!isDigital && !isAnalog) {
             finish()
             return
         }
 
         val store = ClockStore(applicationContext)
+        val defaultType = if (isDigital) WidgetType.DIGITAL else WidgetType.ANALOG
 
-        setContent {
-            val settings by store.settings.collectAsStateWithLifecycle(initialValue = ClockSettings())
-            val existing by store.widgetConfig(appWidgetId)
-                .collectAsStateWithLifecycle(initialValue = null)
+        lifecycleScope.launch {
+            val savedConfig = store.widgetConfigNow(appWidgetId)
+            val initialConfig = savedConfig ?: WidgetConfig(type = defaultType)
 
-            ClockTheme(settings.theme) {
-                WidgetConfigScreen(
-                    initial = existing ?: WidgetConfig(),
-                    settings = settings,
-                    isNew = existing == null,
-                    onCancel = { finish() },
-                    onSave = { config -> commit(appWidgetId, config) },
-                )
+            setContent {
+                val settings by store.settings.collectAsStateWithLifecycle(initialValue = ClockSettings())
+
+                ClockTheme(settings.theme) {
+                    WidgetConfigScreen(
+                        initial = initialConfig,
+                        settings = settings,
+                        isNew = savedConfig == null,
+                        onCancel = { finish() },
+                        onSave = { config -> commit(appWidgetId, config) },
+                    )
+                }
             }
         }
     }
@@ -85,14 +94,12 @@ class ClockWidgetConfigActivity : ComponentActivity() {
         lifecycleScope.launch {
             val store = ClockStore(applicationContext)
             store.putWidgetConfig(appWidgetId, config)
-            // The javadoc promises the host sends ACTION_APPWIDGET_UPDATE after RESULT_OK. On the
-            // reconfigure path AOSP sends none, and on the initial add onUpdate already fired
-            // before the user chose anything. So the activity pushes the content itself.
-            ClockWidgetRenderer.update(
-                applicationContext,
-                AppWidgetManager.getInstance(applicationContext),
-                appWidgetId,
-            )
+            val manager = AppWidgetManager.getInstance(applicationContext)
+            if (config.type == WidgetType.DIGITAL) {
+                DigitalClockWidgetRenderer.update(applicationContext, manager, appWidgetId)
+            } else {
+                ClockWidgetRenderer.update(applicationContext, manager, appWidgetId)
+            }
             setResult(
                 RESULT_OK,
                 Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),

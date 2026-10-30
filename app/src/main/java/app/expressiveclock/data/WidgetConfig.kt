@@ -1,5 +1,6 @@
 package app.expressiveclock.data
 
+import app.expressiveclock.R
 import app.expressiveclock.ui.theme.Palette
 
 /**
@@ -10,6 +11,24 @@ import app.expressiveclock.ui.theme.Palette
  * a dead rectangle on the home screen that the user has no way to fix.
  */
 data class WidgetConfig(
+    val type: WidgetType = WidgetType.ANALOG,
+
+    /* ── Digital Specific ───────────────────────────────────────────────────────────────── */
+    val digitalLayout: DigitalLayout = DigitalLayout.STACKED,
+    val digitalFont: WidgetFontFamily = WidgetFontFamily.GOOGLE_SANS,
+    val digitalWeight: DigitalTypefaceWeight = DigitalTypefaceWeight.REGULAR,
+    val showSeconds: Boolean = false,
+    val digitalBackground: DigitalBackground = DigitalBackground.FILLED,
+    val showDate: Boolean = true,
+    val showDayOfWeek: Boolean = true,
+
+    /* ── Digital Element Colours ───────────────────────────────────────────────────────── */
+    val digitalHourColor: Long? = null,
+    val digitalColonColor: Long? = null,
+    val digitalMinuteColor: Long? = null,
+    val digitalDayColor: Long? = null,
+    val digitalDateColor: Long? = null,
+
     /* ── Face ───────────────────────────────────────────────────────────────────────────── */
     val shape: FaceShape = FaceShape.CIRCLE,
     /** Only read when [shape] is [FaceShape.PILL]. */
@@ -22,12 +41,15 @@ data class WidgetConfig(
     val hourHand: HandStyle = HandStyle.BATON,
     val minuteHand: HandStyle = HandStyle.BATON,
     val secondHand: HandStyle = HandStyle.OFF,
+    val analogSecondHandColor: Long? = null,
     val centrePin: Boolean = true,
 
     /* ── Indices ────────────────────────────────────────────────────────────────────────── */
     val numerals: NumeralSystem = NumeralSystem.ARABIC,
     val indexSet: IndexSet = IndexSet.QUARTERS,
-    val minorIndices: MinorIndex = MinorIndex.DOTS,
+    val minorIndices: MinorIndex = MinorIndex.NONE,
+    val analogFont: WidgetFontFamily = WidgetFontFamily.GOOGLE_SANS,
+    val analogWeight: DigitalTypefaceWeight = DigitalTypefaceWeight.REGULAR,
     val numeralSize: NumeralSize = NumeralSize.MEDIUM,
     val numeralLayout: NumeralLayout = NumeralLayout.CIRCLE_UPRIGHT,
     val numeralWidth: NumeralWidth = NumeralWidth.NORMAL,
@@ -42,7 +64,51 @@ data class WidgetConfig(
     val colour: ColourSource = ColourSource.FOLLOW_APP,
     /** Only read when [colour] is [ColourSource.PALETTE]. */
     val palette: Palette = Palette.CONCEPT,
+    val swatch: WidgetColorSwatch = WidgetColorSwatch.BLUE,
+    val analogPrimaryColor: Long? = null,
 )
+
+enum class WidgetType(val label: String) {
+    ANALOG("Analog"),
+    DIGITAL("Digital"),
+}
+
+enum class WidgetFontFamily(val label: String, val fontResId: Int) {
+    GOOGLE_SANS("Condensed", R.font.google_sans_flex),
+    GOOGLE_SANS_NORMAL("Flex", R.font.google_sans_flex),
+    SERIF("Serif", 0),
+    MONOSPACE("Monospace", 0),
+    CURSIVE("Cursive", 0),
+}
+
+enum class DigitalLayout(val label: String) {
+    STACKED("Stacked"),
+    HORIZONTAL("Horizontal"),
+    TIME_ONLY("Time only"),
+    COMPACT("Compact"),
+}
+
+enum class DigitalTypefaceWeight(val label: String, val weightInt: Int) {
+    THIN("Thin", 100),
+    REGULAR("Regular", 400),
+    MEDIUM("Medium", 600),
+    BOLD("Bold", 900),
+}
+
+enum class DigitalBackground(val label: String) {
+    FILLED("Filled"),
+    OUTLINED("Outlined"),
+    NONE("None"),
+}
+
+enum class WidgetColorSwatch(val label: String, val colorArgb: Long) {
+    BLUE("Blue", 0xFF2170E8L),
+    PURPLE("Purple", 0xFF8B5CF6L),
+    PINK("Pink", 0xFFEC4899L),
+    MINT("Mint", 0xFF10B981L),
+    PEACH("Peach", 0xFFF59E0BL),
+    CHARCOAL("Dark Charcoal", 0xFF1F2937L),
+}
 
 /**
  * The face outline.

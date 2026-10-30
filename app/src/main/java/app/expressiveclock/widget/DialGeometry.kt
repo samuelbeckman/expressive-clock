@@ -22,7 +22,7 @@ object DialGeometry {
     /* ── Hands, as fractions of Rmin ────────────────────────────────────────────────────── */
     const val HOUR_LENGTH = 0.778f
     const val MINUTE_LENGTH = 0.889f
-    const val SECOND_LENGTH = 0.933f
+    const val SECOND_LENGTH = 0.820f
 
     const val HOUR_WIDTH = 0.0889f
     const val MINUTE_WIDTH = 0.0711f
