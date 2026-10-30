@@ -130,12 +130,12 @@
         </service>
 
         <receiver
-            android:name=".alarm.AlarmReceiver"
+            android:name=".alarm.BootReceiver"
             android:exported="false"
             android:directBootAware="true">
             <intent-filter>
                 <!--
-                  All four mean the same thing to this app: every AlarmManager entry it owns is now
+                  All mean the same thing to this app: every AlarmManager entry it owns is now
                   gone or wrong. LOCKED_BOOT_COMPLETED as well as BOOT_COMPLETED so an alarm can be
                   rearmed before the user has unlocked after a reboot.
                 -->
@@ -146,6 +146,10 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".alarm.AlarmReceiver"
+            android:exported="false" />
 
         <receiver android:name=".alarm.ClockActionReceiver" android:exported="false" />
 

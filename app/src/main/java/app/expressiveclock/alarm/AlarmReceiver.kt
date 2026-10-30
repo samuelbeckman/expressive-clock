@@ -11,20 +11,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * The alarm going off, and everything that can invalidate a schedule.
+ * Handles exact alarm firings and timer expiries from `AlarmManager`.
  *
- * ## Why one receiver for four unrelated broadcasts
- *
- * Boot, "user changed the clock", "user changed time zone" and "we just updated the app" all mean
- * the same thing to this app. Every `AlarmManager` entry it owns is now either gone or wrong, so
- * re-derive them from the stored alarms. `AlarmManager` keeps nothing across a reboot, and an
- * alarm set for 07:00 in Montréal must still be 07:00 after landing in Paris, which means the
- * absolute instant has to be recomputed rather than preserved.
- *
- * `MY_PACKAGE_REPLACED` is the one people forget: installing a new build tears down the old
- * process's alarms, and without it every debug install silently disarms the user's clock.
- *
- * ## goAsync
+ * ## `goAsync`
  *
  * Reading DataStore suspends and `onReceive` runs on the main thread with a hard deadline. The
  * pending result keeps the process alive across the coroutine; `finish()` must be reached on every
@@ -40,7 +29,6 @@ class AlarmReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     ACTION_FIRE -> fire(app, intent.getLongExtra(EXTRA_ID, -1L))
                     ACTION_TIMER_EXPIRED -> timerExpired(app)
-                    else -> reschedule(app)
                 }
             } finally {
                 pending.finish()
@@ -87,15 +75,6 @@ class AlarmReceiver : BroadcastReceiver() {
             context,
             Intent(context, AlarmService::class.java).setAction(AlarmService.ACTION_START_TIMER),
         )
-    }
-
-    private suspend fun reschedule(context: Context) {
-        val store = ClockStore(context)
-        Notifications.ensureChannels(context)
-        AlarmScheduler.scheduleAll(context, store.alarmsNow())
-        // A reboot resets elapsedRealtime, so any stored deadline is meaningless. Rebuild the
-        // timer's notification from what survived and let the store's own clamp decide.
-        store.timerNow()?.let { TimerScheduler.sync(context, it) }
     }
 
     companion object {
