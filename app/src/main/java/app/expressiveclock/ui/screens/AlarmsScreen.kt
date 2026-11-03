@@ -124,6 +124,7 @@ import androidx.compose.ui.unit.sp
 import app.expressiveclock.core.Alarm
 import app.expressiveclock.ui.glass
 import app.expressiveclock.ui.elasticClickable
+import app.expressiveclock.ui.luminousElasticClickable
 import app.expressiveclock.data.WeekStart
 import app.expressiveclock.data.order
 import app.expressiveclock.ui.sheets.systemFirstDay
@@ -1299,9 +1300,14 @@ private fun EmptyAlarmState(
         Box(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
+                .luminousElasticClickable(
+                    shape = CircleShape,
+                    maxStretchPercent = 0.08f,
+                    maxTranslateDp = 2.2.dp,
+                    onClick = onAddAlarm,
+                )
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.88f))
-                .elasticClickable(onClick = onAddAlarm)
                 .padding(horizontal = 24.dp, vertical = 14.dp),
             contentAlignment = Alignment.Center,
         ) {

@@ -18,6 +18,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.text.font.FontFamily
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Canvas
@@ -197,7 +198,7 @@ fun DynamicIslandOverlayContent(
         dampingRatio = 0.72f,
     )
 
-    val cameraPointDiameter = 1.dp
+    val cameraCutoutDiameter = cutoutWidthDp.coerceAtLeast(36.dp)
 
     // Master presence progress for shape convergence guard
     val transitionPresenceProgress by transition.animateFloat(
@@ -218,7 +219,7 @@ fun DynamicIslandOverlayContent(
         transitionSpec = { geometrySpringDp },
     ) { state ->
         when (state) {
-            IslandState.HIDDEN -> cameraPointDiameter
+            IslandState.HIDDEN -> 1.dp
             IslandState.COLLAPSED -> collapsedWidth
             IslandState.EXPANDED -> expandedWidth
         }
@@ -229,7 +230,7 @@ fun DynamicIslandOverlayContent(
         transitionSpec = { geometrySpringDp },
     ) { state ->
         when (state) {
-            IslandState.HIDDEN -> cameraPointDiameter
+            IslandState.HIDDEN -> 1.dp
             IslandState.COLLAPSED -> collapsedHeight
             IslandState.EXPANDED -> expandedHeight
         }
@@ -240,15 +241,13 @@ fun DynamicIslandOverlayContent(
         transitionSpec = { geometrySpringDp },
     ) { state ->
         when (state) {
-            IslandState.HIDDEN -> (cameraPointDiameter / 2)
-            IslandState.COLLAPSED -> (collapsedHeight / 2)
+            IslandState.HIDDEN -> 0.5.dp
+            IslandState.COLLAPSED -> (collapsedHeight / 2f)
             IslandState.EXPANDED -> 42.dp
         }
     }
 
-    // Two-Phase Geometry Model:
-    // Phase 1 (clampedProgress <= 0.25f): Tiny Point (1dp x 1dp) <-> Small Circle (36dp x 36dp), width == height!
-    // Phase 2 (clampedProgress > 0.25f): Small Circle (36dp x 36dp) <-> Calibrated Collapsed Pill
+    // Direct geometry mapping: Pill contracts smoothly to 1dp circle
     val clampedProgress = presenceProgress.coerceIn(0f, 1f)
     val effectiveWidth: Dp
     val effectiveHeight: Dp
@@ -259,92 +258,88 @@ fun DynamicIslandOverlayContent(
         effectiveWidth = visualWidth
         effectiveHeight = visualHeight
         effectiveCornerRadius = currentCornerRadius
-    } else if (clampedProgress <= 0.25f) {
-        // Phase 1: Tiny Point (1dp x 1dp) <-> Small Circle (36dp x 36dp), width == height at all times!
-        val circleProgress = (clampedProgress / 0.25f).coerceIn(0f, 1f)
-        val diameter = lerp(cameraPointDiameter, cutoutWidthDp.coerceAtLeast(36.dp), circleProgress)
-        effectiveWidth = diameter
-        effectiveHeight = diameter
-        effectiveCornerRadius = diameter / 2f
     } else {
-        // Phase 2: Small Circle (36dp x 36dp) <-> Calibrated Collapsed Pill
-        val pillProgress = ((clampedProgress - 0.25f) / 0.75f).coerceIn(0f, 1f)
-        val circleDiameter = cutoutWidthDp.coerceAtLeast(36.dp)
-        effectiveWidth = lerp(circleDiameter, collapsedWidth, pillProgress)
-        effectiveHeight = lerp(circleDiameter, collapsedHeight, pillProgress)
-        effectiveCornerRadius = lerp(circleDiameter / 2f, collapsedHeight / 2f, pillProgress)
+        // Proportional contraction towards 1dp circle
+        val endpointDiameter = 1.dp
+        effectiveWidth = lerp(endpointDiameter, collapsedWidth, clampedProgress)
+        effectiveHeight = lerp(endpointDiameter, collapsedHeight, clampedProgress)
+        effectiveCornerRadius = lerp(0.5.dp, collapsedHeight / 2f, clampedProgress)
     }
 
-    val transitionAlpha by transition.animateFloat(
-        label = "currentAlpha",
-        transitionSpec = {
-            if (targetState == IslandState.HIDDEN) tween(durationMillis = 200, easing = LinearEasing)
-            else tween(durationMillis = 150, easing = LinearEasing)
-        },
-    ) { state ->
-        if (state == IslandState.HIDDEN) 0f else 1f
-    }
+    // Optional final pill surface fade over the final ~6dp endpoint
+    val currentAlpha = (effectiveWidth / 6.dp).coerceIn(0f, 1f)
 
-    // During exit presence animation (isExiting == true), the black surface remains 100% opaque (1f)
-    // until presenceProgress reaches ~0f.
-    val currentAlpha = if (isExiting) {
-        if (presenceProgress <= 0.01f) 0f else 1f
-    } else {
-        transitionAlpha
-    }
+    // Inner content fast fade for pill contraction towards 1dp (~133ms / 0.35 progress fraction)
+    val fastContentAlpha = ((clampedProgress - 0.65f) / 0.35f).coerceIn(0f, 1f)
 
-    // Layer 2: Outgoing Collapsed Content Fade & Scale
+    // Layer 2: Collapsed Content Fade & Blur (8 frames / 133ms duration)
     val transitionCollapsedAlpha by transition.animateFloat(
         label = "collapsedAlpha",
         transitionSpec = {
-            if (targetState == IslandState.EXPANDED) {
-                tween(durationMillis = 140, easing = LinearEasing)
-            } else if (targetState == IslandState.HIDDEN) {
-                tween(durationMillis = 100, easing = LinearEasing)
+            if (targetState == IslandState.COLLAPSED) {
+                if (initialState == IslandState.EXPANDED) {
+                    tween(durationMillis = 133, delayMillis = 167, easing = FastOutSlowInEasing)
+                } else {
+                    tween(durationMillis = 133, delayMillis = 150, easing = FastOutSlowInEasing)
+                }
+            } else if (targetState == IslandState.EXPANDED) {
+                tween(durationMillis = 133, easing = FastOutSlowInEasing)
             } else {
-                tween(durationMillis = 160, delayMillis = 120, easing = LinearEasing)
+                tween(durationMillis = 133, easing = FastOutSlowInEasing)
             }
         },
     ) { state ->
         if (state == IslandState.COLLAPSED) 1f else 0f
     }
 
-    val collapsedAlpha = if (isExiting) {
-        ((presenceProgress - 0.40f) / 0.60f).coerceIn(0f, 1f)
-    } else {
-        transitionCollapsedAlpha
-    }
-
-    val collapsedScale by transition.animateFloat(
-        label = "collapsedScale",
-        transitionSpec = { spring(stiffness = 450f, dampingRatio = 0.8f) },
+    val collapsedBlur by transition.animateDp(
+        label = "collapsedBlur",
+        transitionSpec = {
+            if (targetState == IslandState.COLLAPSED) {
+                if (initialState == IslandState.EXPANDED) {
+                    tween(durationMillis = 133, delayMillis = 167, easing = FastOutSlowInEasing)
+                } else {
+                    tween(durationMillis = 133, delayMillis = 150, easing = FastOutSlowInEasing)
+                }
+            } else {
+                tween(durationMillis = 133, easing = FastOutSlowInEasing)
+            }
+        },
     ) { state ->
-        when (state) {
-            IslandState.HIDDEN -> 0.3f
-            IslandState.EXPANDED -> 0.85f
-            IslandState.COLLAPSED -> 1f
-        }
+        if (state == IslandState.COLLAPSED) 0.dp else 6.dp
     }
 
-    // Layer 3: Incoming Expanded Content Fade & Scale
+    val collapsedAlpha = if (isExiting) {
+        fastContentAlpha
+    } else {
+        transitionCollapsedAlpha * fastContentAlpha
+    }
+
+    // Layer 3: Incoming Expanded Content Fade & Blur (8 frames / 133ms duration)
     val expandedAlpha by transition.animateFloat(
         label = "expandedAlpha",
         transitionSpec = {
             if (targetState == IslandState.EXPANDED) {
-                tween(durationMillis = 180, delayMillis = 80, easing = LinearEasing)
+                tween(durationMillis = 133, delayMillis = 167, easing = FastOutSlowInEasing)
             } else {
-                tween(durationMillis = 120, easing = LinearEasing) // Fast early fade-out on collapse!
+                tween(durationMillis = 133, easing = FastOutSlowInEasing)
             }
         },
     ) { state ->
         if (state == IslandState.EXPANDED) 1f else 0f
     }
 
-    val expandedScale by transition.animateFloat(
-        label = "expandedScale",
-        transitionSpec = { spring(stiffness = 450f, dampingRatio = 0.8f) },
+    val expandedBlur by transition.animateDp(
+        label = "expandedBlur",
+        transitionSpec = {
+            if (targetState == IslandState.EXPANDED) {
+                tween(durationMillis = 133, delayMillis = 167, easing = FastOutSlowInEasing)
+            } else {
+                tween(durationMillis = 133, easing = FastOutSlowInEasing)
+            }
+        },
     ) { state ->
-        if (state == IslandState.EXPANDED) 1f else 0.85f
+        if (state == IslandState.EXPANDED) 0.dp else 6.dp
     }
 
     fun openAppTab(tab: String) {
@@ -355,6 +350,7 @@ fun DynamicIslandOverlayContent(
     val topInsetPx = with(density) { topInsetDp.toPx() }
     val offsetXPx = with(density) { offsetXDp.toPx() }
     val offsetYPx = with(density) { offsetYDp.toPx() }
+    val collapsedHeightPx = with(density) { collapsedHeight.toPx() }
     val effectiveWidthPx = with(density) { effectiveWidth.toPx() }
     val effectiveHeightPx = with(density) { effectiveHeight.toPx() }
     val effectiveCornerRadiusPx = with(density) { effectiveCornerRadius.toPx() }
@@ -383,9 +379,14 @@ fun DynamicIslandOverlayContent(
                     this.alpha = currentAlpha
                 },
         ) {
+            // Exact positioning: top-aligned for Collapsed <-> Expanded morph, center-anchored for contraction
             val screenCenterX = size.width / 2f
-            val islandLeftPx = screenCenterX - (effectiveWidthPx / 2f) + offsetXPx
-            val islandTopPx = topInsetPx + offsetYPx
+            val islandLeftPx = screenCenterX + offsetXPx - (effectiveWidthPx / 2f)
+            val islandTopPx = if (!isExiting && (transition.currentState == IslandState.EXPANDED || transition.targetState == IslandState.EXPANDED)) {
+                topInsetPx + offsetYPx
+            } else {
+                topInsetPx + offsetYPx + ((collapsedHeightPx - effectiveHeightPx) / 2f)
+            }
 
             drawRoundRect(
                 color = Color.Black,
@@ -425,11 +426,7 @@ fun DynamicIslandOverlayContent(
                     } else if (!isExiting) {
                         onExpandChanged(true)
                     }
-                }
-                .padding(
-                    horizontal = if (targetIslandState == IslandState.EXPANDED) 20.dp else 0.dp,
-                    vertical = if (targetIslandState == IslandState.EXPANDED) 16.dp else 0.dp,
-                ),
+                },
             contentAlignment = Alignment.Center,
         ) {
             if (isCalibrationPreview) {
@@ -439,13 +436,14 @@ fun DynamicIslandOverlayContent(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // Layer 2: Collapsed Content
+                    // Layer 2: Collapsed Content (Fixed unpadded bounds: never squished or clipped during expansion)
                     if (collapsedAlpha > 0.01f) {
                         Box(
                             modifier = Modifier
+                                .width(collapsedWidth)
+                                .height(collapsedHeight)
+                                .blur(collapsedBlur)
                                 .graphicsLayer {
-                                    scaleX = collapsedScale
-                                    scaleY = collapsedScale
                                     alpha = collapsedAlpha
                                 },
                             contentAlignment = Alignment.Center,
@@ -458,16 +456,17 @@ fun DynamicIslandOverlayContent(
                         }
                     }
 
-                    // Layer 3: Expanded Content
+                    // Layer 3: Expanded Content (Fixed expanded bounds: controls never shift horizontally during contraction)
                     if (expandedAlpha > 0.01f) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
+                                .width(expandedWidth)
+                                .height(expandedHeight)
+                                .blur(expandedBlur)
                                 .graphicsLayer {
-                                    scaleX = expandedScale
-                                    scaleY = expandedScale
                                     alpha = expandedAlpha
-                                },
+                                }
+                                .padding(horizontal = 20.dp, vertical = 16.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             ExpandedIslandCard(

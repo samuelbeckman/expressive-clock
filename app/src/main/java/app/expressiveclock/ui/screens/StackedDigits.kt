@@ -12,12 +12,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import app.expressiveclock.ui.theme.ClockFace
 import app.expressiveclock.ui.blueGlow
 import app.expressiveclock.ui.glass
+import app.expressiveclock.ui.luminousElasticClickable
 import app.expressiveclock.ui.theme.Numerals
 
 /**
@@ -180,64 +185,45 @@ fun WidePill(
     contentAlpha: Float = 1f,
     glow: Boolean = true,
 ) {
-    val pillInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val pillPressed by pillInteraction.collectIsPressedAsState()
-
-    // Keep the glow on a stable, unscaled wrapper. Only the button surface itself participates in
-    // the elastic press transform, so the shadow no longer vanishes/re-rasterizes during taps or
-    // state transitions.
     Box(
         modifier = modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .height(height)
-            .graphicsLayer { clip = false }
-            .then(if (!outlined && glow) Modifier.blueGlow(CircleShape) else Modifier),
+            .luminousElasticClickable(
+                shape = CircleShape,
+                maxStretchPercent = 0.09f,
+                maxTranslateDp = 2.4.dp,
+                onClick = onClick,
+            )
+            .clip(CircleShape)
+            .glass(
+                CircleShape,
+                if (outlined) MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .94f)
+                else container.copy(alpha = .40f),
+                .86f,
+                shadowElevation = if (glow) 18.dp else 0.dp,
+            )
+            .padding(horizontal = contentPaddingH),
         contentAlignment = Alignment.Center,
     ) {
-        androidx.compose.material3.Button(
-            onClick = onClick,
-            interactionSource = pillInteraction,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    val s = if (pillPressed) .965f else 1f
-                    scaleX = s
-                    scaleY = s
-                }
-                .glass(
-                    CircleShape,
-                    if (outlined) MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .94f)
-                    else container.copy(alpha = .40f),
-                    .86f,
-                    shadowElevation = if (glow) 18.dp else 0.dp,
-                ),
-            shape = CircleShape,
-            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = content,
-            ),
-            border = null,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = contentPaddingH),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.graphicsLayer { alpha = contentAlpha },
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.graphicsLayer { alpha = contentAlpha },
-            ) {
-                if (icon != null) {
-                    androidx.compose.material3.Icon(
-                        icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(if (compact) 22.dp else 30.dp),
-                    )
-                    Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
-                }
-                androidx.compose.material3.Text(
+            if (icon != null) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(if (compact) 22.dp else 30.dp),
+                    tint = content,
+                )
+                if (text.isNotEmpty()) Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
+            }
+            if (text.isNotEmpty()) {
+                Text(
                     text,
-                    style = if (compact) {
-                        MaterialTheme.typography.titleMediumEmphasized
-                    } else {
-                        MaterialTheme.typography.headlineSmall
-                    },
+                    style = if (compact) MaterialTheme.typography.titleMediumEmphasized else MaterialTheme.typography.headlineSmallEmphasized,
+                    color = content,
                     maxLines = 1,
                 )
             }

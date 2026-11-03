@@ -2,6 +2,7 @@ package app.expressiveclock.ui.screens
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -12,17 +13,22 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +42,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
@@ -49,13 +56,29 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlin.math.abs
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
@@ -73,10 +96,14 @@ import app.expressiveclock.data.DEFAULT_TIMER_PRESETS
 import app.expressiveclock.data.formatPresetLabel
 import app.expressiveclock.ui.glass
 import app.expressiveclock.ui.elasticClickable
+import app.expressiveclock.ui.luminousElasticClickable
 import app.expressiveclock.ui.theme.ClockFace
 import app.expressiveclock.ui.theme.Numerals
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Duration
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 @Composable
 fun TimersScreen(
@@ -174,6 +201,158 @@ private fun formatTimer(duration: Duration): String {
     return "%02d:%02d:%02d".format(total / 3600, (total % 3600) / 60, total % 60)
 }
 
+private enum class TimerRollDirection { UP, DOWN }
+
+private fun Modifier.featheredVerticalViewport(
+    active: Boolean,
+    fadeHeightFraction: Float = 0.18f,
+): Modifier = if (!active) this else this
+    .graphicsLayer {
+        compositingStrategy = CompositingStrategy.Offscreen
+    }
+    .drawWithContent {
+        drawContent()
+        val fadePx = size.height * fadeHeightFraction
+        val topFadeFraction = (fadePx / size.height).coerceIn(0f, 0.45f)
+        val bottomFadeFraction = 1f - topFadeFraction
+
+        val maskBrush = Brush.verticalGradient(
+            0.0f to Color.Transparent,
+            topFadeFraction to Color.Black,
+            bottomFadeFraction to Color.Black,
+            1.0f to Color.Transparent,
+        )
+
+        drawRect(
+            brush = maskBrush,
+            blendMode = BlendMode.DstIn,
+        )
+    }
+
+@Composable
+private fun UpwardSetupDigitCell(
+    char: Char,
+    width: Dp,
+    capHeight: Dp,
+    color: Color,
+    numeralWidth: Float,
+    staggerDelayMs: Int = 0,
+) {
+    var oldChar by remember { mutableStateOf<Char?>(null) }
+    var newChar by remember { mutableStateOf(char) }
+    val animProgress = remember { Animatable(1f) }
+
+    LaunchedEffect(char) {
+        if (char != newChar) {
+            if (staggerDelayMs > 0) {
+                delay(staggerDelayMs.toLong())
+            }
+            oldChar = newChar
+            newChar = char
+            animProgress.snapTo(0f)
+            animProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+            )
+        }
+    }
+
+    val progress = animProgress.value
+    val density = LocalDensity.current
+    val totalBoxHeight = capHeight + 52.dp
+    val heightPx = with(density) { totalBoxHeight.toPx() }
+    val isAnimating = progress < 1f && oldChar != null && oldChar != newChar
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(totalBoxHeight)
+            .featheredVerticalViewport(active = isAnimating, fadeHeightFraction = 0.08f),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (char == ':') {
+            Text(
+                ":",
+                fontFamily = ClockFace.family(opticalSize = 36f, width = 100f, weight = 550),
+                fontSize = (capHeight.value * 0.65f).sp,
+                color = color,
+            )
+        } else {
+            // Outgoing digit: moves strictly UPWARDS from 0 to -heightPx while fading out and blurring
+            if (progress < 1f && oldChar != null && oldChar != newChar && oldChar != ':') {
+                val outgoingY = -progress * heightPx
+                val outgoingAlpha = (1f - progress * 1.2f).coerceIn(0f, 1f)
+                val outgoingBlurDp = (progress * 3.5f).dp
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(outgoingBlurDp)
+                        .graphicsLayer {
+                            translationY = outgoingY
+                            alpha = outgoingAlpha
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Numerals(
+                        text = oldChar.toString(),
+                        capHeight = capHeight,
+                        color = color,
+                        width = numeralWidth,
+                        weight = 600,
+                        tracking = 0.004f,
+                        slashedZero = false,
+                        roundness = ClockFace.ROUNDED,
+                    )
+                }
+            }
+
+            // Incoming digit: moves UPWARDS with extended 18dp overshoot (Phase 1: 0ms..200ms UP; Phase 2: 200ms..480ms DOWN)
+            val overshootPx = with(density) { 18.dp.toPx() } // Extended vertical overshoot (18dp)
+            val incomingY = if (oldChar != null && oldChar != newChar) {
+                if (progress < 0.42f) {
+                    // Phase 1 (0ms -> 200ms): Travels UPWARDS from +heightPx past 0 to -18dp
+                    val p1 = progress / 0.42f
+                    heightPx - p1 * (heightPx + overshootPx)
+                } else {
+                    // Phase 2 (200ms -> 480ms): Settles smoothly and deliberately DOWNWARDS from -18dp to exact 0
+                    val p2 = (progress - 0.42f) / 0.58f
+                    -overshootPx * (1f + sin((p2 + 0.5f) * Math.PI.toFloat())) / 2f
+                }
+            } else {
+                0f
+            }
+
+            val incomingAlpha = (progress * 1.4f).coerceIn(0f, 1f)
+            val incomingBlurDp = ((1f - progress) * 3.5f).dp
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(incomingBlurDp)
+                    .graphicsLayer {
+                        translationY = incomingY
+                        alpha = incomingAlpha
+                        scaleX = 1f
+                        scaleY = 1f
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Numerals(
+                    text = newChar.toString(),
+                    capHeight = capHeight,
+                    color = color,
+                    width = numeralWidth,
+                    weight = 600,
+                    tracking = 0.008f,
+                    slashedZero = false,
+                    roundness = ClockFace.ROUNDED,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun TickerTimerReadout(
     text: String,
@@ -185,6 +364,8 @@ private fun TickerTimerReadout(
     colonWidth: androidx.compose.ui.unit.Dp = 15.dp,
     numeralWidth: Float = ClockFace.TIMER_WIDTH,
     autoSize: Boolean = false,
+    rollDirection: TimerRollDirection = TimerRollDirection.UP,
+    enableStagger: Boolean = false,
 ) {
     BoxWithConstraintsCompat(
         modifier = Modifier.fillMaxWidth(),
@@ -215,15 +396,30 @@ private fun TickerTimerReadout(
                 horizontalArrangement = Arrangement.spacedBy(computedSpacing),
             ) {
                 text.forEachIndexed { index, char ->
-                    TickerCell(
-                        char = char,
-                        width = if (char == ':') computedColonWidth else computedDigitWidth,
-                        capHeight = computedCapHeight,
-                        key = index,
-                        color = color,
-                        numeralWidth = numeralWidth,
-                        overshoot = autoSize,
-                    )
+                    val staggerIndex = if (rollDirection == TimerRollDirection.UP) index else (text.length - 1 - index).coerceAtLeast(0)
+                    val staggerDelayMs = if (enableStagger) (staggerIndex * 38) else 0
+
+                    if (rollDirection == TimerRollDirection.UP) {
+                        UpwardSetupDigitCell(
+                            char = char,
+                            width = if (char == ':') computedColonWidth else computedDigitWidth,
+                            capHeight = computedCapHeight,
+                            color = color,
+                            numeralWidth = numeralWidth,
+                            staggerDelayMs = staggerDelayMs,
+                        )
+                    } else {
+                        TickerCell(
+                            char = char,
+                            width = if (char == ':') computedColonWidth else computedDigitWidth,
+                            capHeight = computedCapHeight,
+                            key = index,
+                            color = color,
+                            numeralWidth = numeralWidth,
+                            rollDirection = rollDirection,
+                            staggerDelayMs = staggerDelayMs,
+                        )
+                    }
                 }
             }
         } else {
@@ -248,15 +444,30 @@ private fun TickerTimerReadout(
                 horizontalArrangement = Arrangement.spacedBy(spacing),
             ) {
                 text.forEachIndexed { index, char ->
-                    TickerCell(
-                        char = char,
-                        width = if (char == ':') colonWidth else digitWidth,
-                        capHeight = capHeight,
-                        key = index,
-                        color = color,
-                        numeralWidth = numeralWidth,
-                        overshoot = autoSize,
-                    )
+                    val staggerIndex = if (rollDirection == TimerRollDirection.UP) index else (text.length - 1 - index).coerceAtLeast(0)
+                    val staggerDelayMs = if (enableStagger) (staggerIndex * 38) else 0
+
+                    if (rollDirection == TimerRollDirection.UP) {
+                        UpwardSetupDigitCell(
+                            char = char,
+                            width = if (char == ':') colonWidth else digitWidth,
+                            capHeight = capHeight,
+                            color = color,
+                            numeralWidth = numeralWidth,
+                            staggerDelayMs = staggerDelayMs,
+                        )
+                    } else {
+                        TickerCell(
+                            char = char,
+                            width = if (char == ':') colonWidth else digitWidth,
+                            capHeight = capHeight,
+                            key = index,
+                            color = color,
+                            numeralWidth = numeralWidth,
+                            rollDirection = rollDirection,
+                            staggerDelayMs = staggerDelayMs,
+                        )
+                    }
                 }
             }
         }
@@ -288,72 +499,77 @@ private fun TickerCell(
     key: Int,
     color: Color,
     numeralWidth: Float,
-    overshoot: Boolean,
+    rollDirection: TimerRollDirection,
+    staggerDelayMs: Int = 0,
 ) {
     androidx.compose.animation.AnimatedContent(
         modifier = Modifier
             .width(width)
-            .height(capHeight + 16.dp),
+            .height(capHeight + 52.dp),
         targetState = char,
         transitionSpec = {
             val oldDigit = initialState.digitToIntOrNull()
             val newDigit = targetState.digitToIntOrNull()
             if (oldDigit == null || newDigit == null) {
-                fadeIn(tween(100)) togetherWith fadeOut(tween(70)) using SizeTransform(clip = true)
+                fadeIn(tween(100)) togetherWith fadeOut(tween(70)) using SizeTransform(clip = false)
             } else {
-                val increasing = newDigit > oldDigit
-                val incomingDirection = if (increasing) 1 else -1
+                val incomingDirection = if (rollDirection == TimerRollDirection.UP) 1 else -1
                 val outgoingDirection = -incomingDirection
-                val incoming = if (overshoot) {
-                    slideInVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = 520f,
-                        ),
-                        initialOffsetY = { it * incomingDirection },
-                    ) + scaleIn(
-                        initialScale = 0.90f,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = 520f,
-                        ),
+
+                val springSpec = if (rollDirection == TimerRollDirection.UP) {
+                    spring<IntOffset>(
+                        stiffness = 420f,
+                        dampingRatio = 1.0f,
                     )
                 } else {
-                    slideInVertically(
-                        animationSpec = tween(145),
-                        initialOffsetY = { it * incomingDirection },
+                    spring<IntOffset>(
+                        stiffness = 380f,
+                        dampingRatio = 0.68f, // Active timer ticker detent overshoot
                     )
                 }
 
-                val outgoing = if (overshoot) {
-                    slideOutVertically(
-                        animationSpec = tween(125),
-                        targetOffsetY = { it * outgoingDirection },
-                    ) + scaleOut(
-                        targetScale = 0.96f,
-                        animationSpec = tween(125),
-                    )
-                } else {
-                    slideOutVertically(
-                        animationSpec = tween(125),
-                        targetOffsetY = { it * outgoingDirection },
-                    )
-                }
+                val incoming = slideInVertically(
+                    animationSpec = springSpec,
+                    initialOffsetY = { it * incomingDirection },
+                )
 
-                incoming + fadeIn(tween(90)) togetherWith
-                    (outgoing + fadeOut(tween(70))) using SizeTransform(clip = true)
+                val outgoing = slideOutVertically(
+                    animationSpec = tween(
+                        durationMillis = if (rollDirection == TimerRollDirection.UP) 160 else 180,
+                        delayMillis = staggerDelayMs,
+                        easing = FastOutSlowInEasing,
+                    ),
+                    targetOffsetY = { it * outgoingDirection },
+                )
+
+                incoming + fadeIn(tween(90, delayMillis = staggerDelayMs)) togetherWith
+                    (outgoing + fadeOut(tween(70, delayMillis = staggerDelayMs))) using SizeTransform(clip = false)
             }
         },
         label = "timerTicker-$key",
     ) { value ->
+        val cellBlurProgress by transition.animateFloat(
+            label = "cellBlurProgress",
+            transitionSpec = {
+                tween(durationMillis = 180, delayMillis = staggerDelayMs, easing = FastOutSlowInEasing)
+            },
+        ) { targetState ->
+            if (targetState == EnterExitState.Visible) 0f else 1f
+        }
+        val currentBlurDp = (cellBlurProgress * 3.5f).dp
+        val isCellAnimating = cellBlurProgress > 0.01f
+
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .blur(currentBlurDp)
+                .featheredVerticalViewport(active = isCellAnimating, fadeHeightFraction = 0.08f),
             contentAlignment = Alignment.Center,
         ) {
             if (value == ':') {
                 Text(
                     ":",
-                    fontFamily = ClockFace.family(opticalSize = 36f, width = 100f, weight = 500),
+                    fontFamily = ClockFace.family(opticalSize = 36f, width = 100f, weight = if (rollDirection == TimerRollDirection.DOWN) 750 else 500, roundness = ClockFace.ROUNDED),
                     fontSize = (capHeight.value * 0.65f).sp,
                     color = color,
                 )
@@ -363,9 +579,10 @@ private fun TickerCell(
                     capHeight = capHeight,
                     color = color,
                     width = numeralWidth,
-                    weight = ClockFace.TIMER_WEIGHT,
+                    weight = if (rollDirection == TimerRollDirection.DOWN) 750 else ClockFace.TIMER_WEIGHT,
                     tracking = 0.008f,
                     slashedZero = false,
+                    roundness = ClockFace.ROUNDED,
                 )
             }
         }
@@ -381,6 +598,14 @@ private fun SetTimerBody(
     onResetDraft: () -> Unit,
     onPreset: (Int) -> Unit,
 ) {
+    var isLongPressReset by remember { mutableStateOf(false) }
+
+    LaunchedEffect(draft) {
+        if (!draft.isZero) {
+            isLongPressReset = false
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -390,11 +615,32 @@ private fun SetTimerBody(
             text = formatTimer(draft),
             autoSize = true,
             numeralWidth = 82f,
+            rollDirection = TimerRollDirection.UP,
+            enableStagger = isLongPressReset,
         )
         Spacer(Modifier.height(6.dp))
-        Keypad(onDigit = onDigit, onBackspace = onBackspace, onResetDraft = onResetDraft)
+        Keypad(
+            onDigit = { char ->
+                isLongPressReset = false
+                onDigit(char)
+            },
+            onBackspace = {
+                isLongPressReset = false
+                onBackspace()
+            },
+            onResetDraft = {
+                isLongPressReset = true
+                onResetDraft()
+            },
+        )
         Spacer(Modifier.height(18.dp))
-        Presets(presets = presets, onPreset = onPreset)
+        Presets(
+            presets = presets,
+            onPreset = { seconds ->
+                isLongPressReset = false
+                onPreset(seconds)
+            },
+        )
     }
 }
 
@@ -432,14 +678,15 @@ private fun Presets(
 
 @Composable
 private fun PresetButton(seconds: Int, onClick: () -> Unit) {
+    val presetShape = RoundedCornerShape(27.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
-            .clip(CircleShape)
+            .luminousElasticClickable(shape = presetShape, onClick = onClick)
+            .clip(presetShape)
             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .92f))
-            .border(1.25.dp, MaterialTheme.colorScheme.primary.copy(alpha = .28f), CircleShape)
-            .elasticClickable(onClick = onClick),
+            .border(1.25.dp, MaterialTheme.colorScheme.primary.copy(alpha = .28f), presetShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -516,16 +763,18 @@ private fun KeyBox(
     label: String,
     content: @Composable () -> Unit,
 ) {
+    val buttonShape = RoundedCornerShape(38.dp)
     Box(
         modifier = modifier
             .height(76.dp)
             .padding(2.dp)
-            .glass(CircleShape, container.copy(alpha = .88f), .84f, shadowElevation = 0.dp)
-            .clip(CircleShape)
-            .combinedClickable(
+            .luminousElasticClickable(
+                shape = buttonShape,
                 onClick = onClick,
                 onLongClick = onLongClick,
             )
+            .clip(buttonShape)
+            .glass(buttonShape, container.copy(alpha = .88f), .84f, shadowElevation = 0.dp)
             .clearAndSetSemantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
@@ -566,9 +815,11 @@ private fun RunningTimerBody(
                         text = formatTimer(remaining),
                         capHeight = 49.dp,
                         scale = 0.98f,
-                        spacing = 1.5.dp,
+                        spacing = 0.5.dp,
                         digitWidth = 47.dp,
                         colonWidth = 13.dp,
+                        rollDirection = TimerRollDirection.DOWN,
+                        enableStagger = true,
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(

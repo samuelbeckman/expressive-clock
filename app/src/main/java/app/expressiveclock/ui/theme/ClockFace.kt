@@ -172,6 +172,8 @@ object ClockFace {
         )
     }
 
+    const val ROUNDED = 100f
+
     fun numerals(
         capHeight: Dp,
         width: Float,
@@ -179,6 +181,7 @@ object ClockFace {
         tabular: Boolean = true,
         tracking: Float = 0f,
         slashedZero: Boolean = false,
+        roundness: Float = 0f,
     ): TextStyle = TextStyle(
         // opsz tracks the type size, clamped at the font's 144 max. Every one of the 30
         // documented styles sets opsz equal to its point size; the Do is explicit.
@@ -186,6 +189,7 @@ object ClockFace {
             opticalSize = fontSizeFor(capHeight).value,
             width = width,
             weight = weight,
+            roundness = roundness,
         ),
         fontSize = fontSizeFor(capHeight).value.sp,
         letterSpacing = tracking.em,
@@ -425,8 +429,9 @@ fun Numerals(
     tabular: Boolean = true,
     tracking: Float = 0f,
     slashedZero: Boolean = false,
+    roundness: Float = 0f,
 ) {
-    val style = ClockFace.numerals(capHeight, width, weight, tabular, tracking, slashedZero)
+    val style = ClockFace.numerals(capHeight, width, weight, tabular, tracking, slashedZero, roundness)
         .copy(color = color)
     InkTight(text, style, capHeight, modifier)
 }

@@ -1,6 +1,7 @@
 package app.expressiveclock.ui.screens
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -59,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import app.expressiveclock.core.Lap
 import app.expressiveclock.ui.glass
 import app.expressiveclock.ui.elasticClickable
+import app.expressiveclock.ui.luminousElasticClickable
 import app.expressiveclock.ui.theme.ClockFace
 import app.expressiveclock.core.Stopwatch
 import app.expressiveclock.core.stopwatchParts
@@ -139,7 +141,6 @@ fun StopwatchScreen(
     }
 
     val density = LocalDensity.current
-    val totalBottomPadding = contentPadding.calculateBottomPadding() + 140.dp
     var previousLapCount by remember { mutableIntStateOf(stopwatch.laps.size) }
 
     LaunchedEffect(stopwatch.laps.size) {
@@ -173,6 +174,12 @@ fun StopwatchScreen(
         }
     }
 
+    val effectiveBottomPadding = if (stopwatch.laps.isNotEmpty()) {
+        contentPadding.calculateBottomPadding() + 140.dp
+    } else {
+        contentPadding.calculateBottomPadding()
+    }
+
     FixedEdgeBlurContainer(
         topInset = contentPadding.calculateTopPadding(),
         bottomInset = contentPadding.calculateBottomPadding(),
@@ -181,9 +188,10 @@ fun StopwatchScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = stopwatch.laps.isNotEmpty(),
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding(),
-                bottom = totalBottomPadding,
+                bottom = effectiveBottomPadding,
             ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -229,19 +237,66 @@ fun StopwatchScreen(
 @Composable
 private fun StopwatchFace(elapsedMillis: Long, running: Boolean, onToggle: () -> Unit) {
     val safeMillis = elapsedMillis.coerceAtLeast(0L)
-    val totalSeconds = safeMillis / 1000f
-    val secondAngle = (totalSeconds % 60f) / 60f * (2f * Math.PI.toFloat())
     val hundredths = ((safeMillis % 1000L) / 10L).toInt()
     val minutes = (safeMillis / 60000L).toInt()
     val seconds = ((safeMillis / 1000L) % 60L).toInt()
     val primary = MaterialTheme.colorScheme.primary
     val onSurface = MaterialTheme.colorScheme.onSurface
 
+    // Fluid hand rotation with smooth reset animation
+    val currentTurnFraction = ((safeMillis % 60000L) / 60000f)
+    val handTurnAnim = remember { Animatable(currentTurnFraction) }
+
+    LaunchedEffect(safeMillis, running) {
+        if (running || safeMillis > 0L) {
+            handTurnAnim.snapTo(currentTurnFraction)
+        } else {
+            // Reset: continuous 2-phase angular return with natural overshoot & settling at 12 o'clock
+            val start = (handTurnAnim.value % 1f + 1f) % 1f
+            if (start > 0.001f && start < 0.999f) {
+                val (overshootTarget, finalTarget) = if (start <= 0.5f) {
+                    Pair(-0.038f, 0.0f) // counter-clockwise return past 12 o'clock
+                } else {
+                    Pair(1.038f, 1.0f) // clockwise return past 12 o'clock
+                }
+                handTurnAnim.snapTo(start)
+
+                // Phase 1: Smooth return and controlled overshoot past 12 o'clock
+                handTurnAnim.animateTo(
+                    targetValue = overshootTarget,
+                    animationSpec = tween(
+                        durationMillis = 340,
+                        easing = FastOutSlowInEasing,
+                    ),
+                )
+
+                // Phase 2: Gentle, smooth return from overshoot to exact 12 o'clock
+                handTurnAnim.animateTo(
+                    targetValue = finalTarget,
+                    animationSpec = tween(
+                        durationMillis = 220,
+                        easing = FastOutSlowInEasing,
+                    ),
+                )
+            }
+            handTurnAnim.snapTo(0f)
+        }
+    }
+
+    val positiveTurns = (handTurnAnim.value % 1f + 1f) % 1f
+    val secondAngle = positiveTurns * (2f * Math.PI.toFloat())
+
     Box(
         modifier = Modifier
             .size(STOPWATCH_FACE_SIZE)
+            .luminousElasticClickable(
+                shape = CircleShape,
+                maxStretchPercent = 0.04f,
+                maxTranslateDp = 2.0.dp,
+                luminousRadiusScale = 0.58f,
+                onClick = onToggle,
+            )
             .clip(CircleShape)
-            .elasticClickable(onClick = onToggle)
             .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .96f), CircleShape)
             .border(1.25.dp, MaterialTheme.colorScheme.outline.copy(alpha = .12f), CircleShape),
         contentAlignment = Alignment.Center,
@@ -299,13 +354,13 @@ private fun StopwatchFace(elapsedMillis: Long, running: Boolean, onToggle: () ->
             ) {
                 Text(
                     "%02d:".format(minutes),
-                    fontFamily = ClockFace.family(opticalSize = 34f, width = 100f, weight = 500),
+                    fontFamily = ClockFace.family(opticalSize = 34f, width = 100f, weight = 500, roundness = ClockFace.ROUNDED),
                     fontSize = 42.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     "%02d.%02d".format(seconds, hundredths),
-                    fontFamily = ClockFace.family(opticalSize = 34f, width = 100f, weight = 500),
+                    fontFamily = ClockFace.family(opticalSize = 34f, width = 100f, weight = 500, roundness = ClockFace.ROUNDED),
                     fontSize = 42.sp,
                     color = MaterialTheme.colorScheme.primary,
                 )

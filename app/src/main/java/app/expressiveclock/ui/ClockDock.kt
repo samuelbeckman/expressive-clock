@@ -93,6 +93,11 @@ fun ClockDock(
                     .width(DOCK_WIDTH)
                     .height(DOCK_HEIGHT)
                     .graphicsLayer { translationX = dockShift.toPx() }
+                    .luminousElasticClickable(
+                        shape = RoundedCornerShape(DOCK_HEIGHT / 2),
+                        maxStretchPercent = 0.06f,
+                        maxTranslateDp = 1.8.dp,
+                    )
                     .glass(
                         RoundedCornerShape(DOCK_HEIGHT / 2),
                         dockTint,
@@ -148,6 +153,13 @@ fun ClockDock(
                         scaleX = addScale
                         scaleY = addScale
                     }
+                    .luminousElasticClickable(
+                        enabled = showAdd,
+                        shape = CircleShape,
+                        maxStretchPercent = 0.08f,
+                        maxTranslateDp = 2.0.dp,
+                        onClick = onAdd,
+                    )
                     .clip(CircleShape)
                     .glass(
                         CircleShape,
@@ -160,14 +172,7 @@ fun ClockDock(
                     .clearAndSetSemantics { contentDescription = addLabel },
                 contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .elasticClickable(enabled = showAdd, onClick = onAdd),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(31.dp))
-                }
+                Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(31.dp))
             }
         }
     }
@@ -203,7 +208,9 @@ private fun RowScope.DockItem(tab: Tab, selected: Boolean, iconColor: Color, onC
         modifier = Modifier
             .weight(1f)
             .height(DOCK_HEIGHT)
-            .elasticClickable(
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
                 onClick = {
                     tapCount++
                     onClick()
