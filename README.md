@@ -11,7 +11,6 @@ Building on that foundation, Expressive Clock brings together alarms, a world cl
 ## Features
 
 - **Alarms:** Schedule alarms with ringing and snooze functionality.
-- **World Clock:** View the time across different locations.
 - **Timers:** Create and manage countdown timers.
 - **Stopwatch:** Track elapsed time.
 - **Analog clock widget:** A configurable home-screen clock widget.
