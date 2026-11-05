@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -197,7 +199,10 @@ fun TimersScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
-                Modifier.fillMaxWidth().weight(1f),
+                Modifier.fillMaxWidth().weight(1f).then(
+                    if (windowSizeInfo.isHeightCompact) Modifier.verticalScroll(rememberScrollState())
+                    else Modifier,
+                ),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 AnimatedContent(

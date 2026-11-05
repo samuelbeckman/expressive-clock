@@ -6,11 +6,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+private val TWO_PANE_MIN_WIDTH = 600.dp
+private val TWO_PANE_MIN_HEIGHT = 600.dp
+
 /**
- * Window width classes for responsive layout switching in Expressive Clock.
+ * Layout classes for responsive switching in Expressive Clock.
  *
- * - [COMPACT]: Content width < 600dp (Phone portrait layout).
- * - [EXPANDED]: Content width >= 600dp (Foldables unfolded, tablets, two-pane layout).
+ * - [COMPACT]: Either dimension is below 600dp (including phones in landscape).
+ * - [EXPANDED]: Width and height are both at least 600dp (unfolded/tablet two-pane layout).
  */
 enum class AppWindowWidthClass {
     COMPACT,
@@ -25,6 +28,10 @@ data class AppWindowSizeInfo(
     val screenWidthDp: Dp,
     val screenHeightDp: Dp,
 ) {
+    /** Short windows need scrolling even when there are no laps or other list items yet. */
+    val isHeightCompact: Boolean
+        get() = screenHeightDp < TWO_PANE_MIN_HEIGHT
+
     val isExpanded: Boolean
         get() = widthClass == AppWindowWidthClass.EXPANDED
 
@@ -33,7 +40,7 @@ data class AppWindowSizeInfo(
 }
 
 /**
- * Calculates the current window size info based on available content width.
+ * Calculates the current window size info from both available window dimensions.
  *
  * Re-evaluates dynamically when screen width changes (e.g. folding/unfolding, window resizing).
  */
@@ -43,7 +50,7 @@ fun rememberAppWindowSizeInfo(): AppWindowSizeInfo {
     val widthDp = configuration.screenWidthDp.dp
     val heightDp = configuration.screenHeightDp.dp
 
-    val widthClass = if (widthDp >= 600.dp) {
+    val widthClass = if (widthDp >= TWO_PANE_MIN_WIDTH && heightDp >= TWO_PANE_MIN_HEIGHT) {
         AppWindowWidthClass.EXPANDED
     } else {
         AppWindowWidthClass.COMPACT

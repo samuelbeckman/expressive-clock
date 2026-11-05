@@ -219,7 +219,7 @@ fun StopwatchScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            userScrollEnabled = displayedLaps.isNotEmpty(),
+            userScrollEnabled = displayedLaps.isNotEmpty() || LocalAppWindowSizeInfo.current.isHeightCompact,
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding(),
                 bottom = effectiveBottomPadding,
