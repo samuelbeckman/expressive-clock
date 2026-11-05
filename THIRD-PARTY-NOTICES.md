@@ -33,6 +33,20 @@ redistributing the font software.
 
 ---
 
+## World Clock map
+
+The precalculated dotted map in `WorldMapData.kt` was derived using
+[NTag/dotted-map](https://github.com/NTag/dotted-map), copyright (c) 2021 Basile
+Bruneau, under the MIT Licence. The full copyright and permission notice is
+included in [world-map-notices.txt](app/src/main/assets/licenses/world-map-notices.txt),
+which is also packaged in the application assets.
+
+Made with [Natural Earth](https://www.naturalearthdata.com/). Its underlying map
+data are [public domain](https://www.naturalearthdata.com/about/terms-of-use/);
+credit is provided voluntarily.
+
+---
+
 ## Libraries (linked, not redistributed here)
 
 All under the Apache License 2.0:

@@ -13,7 +13,9 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -33,14 +35,20 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -108,6 +116,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -120,10 +131,15 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.expressiveclock.data.ClockSettings
@@ -137,6 +153,8 @@ import app.expressiveclock.data.WeekStart
 import app.expressiveclock.overlay.OverlayAccessibilityService
 import app.expressiveclock.overlay.OverlayManager
 import app.expressiveclock.ui.elasticClickable
+import app.expressiveclock.ui.responsive.LocalAppWindowSizeInfo
+import app.expressiveclock.ui.responsive.TwoPaneLayout
 
 @Composable
 fun SettingsScreen(
@@ -149,6 +167,12 @@ fun SettingsScreen(
     var picker by remember { mutableStateOf<SettingsPicker?>(null) }
     var showCalibrationDialog by remember { mutableStateOf(false) }
     var showAccessibilityPromptDialog by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val fadeDistance = with(LocalDensity.current) { 32.dp.toPx() }
+    val headerFalloff by animateFloatAsState(
+        targetValue = (scrollState.value / fadeDistance).coerceIn(0f, 1f),
+        label = "settingsHeaderFalloff",
+    )
 
     val appUpdateManager = remember(context) { AppUpdateManagerFactory.create(context) }
     var isCheckingUpdates by remember { mutableStateOf(false) }
@@ -252,15 +276,12 @@ fun SettingsScreen(
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            SettingsCard(title = "Appearance") {
+        SettingsContentLayout(
+            modifier = Modifier.weight(1f),
+            foldedScroll = scrollState,
+            foldedFalloff = headerFalloff,
+        ) { category ->
+            if (category == null || category == SettingsCategory.APPEARANCE) SettingsCard(title = "Appearance") {
                 SettingsNavigateRow(
                     icon = Icons.Outlined.SettingsBrightness,
                     title = "Theme",
@@ -298,7 +319,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard(title = "Alarms") {
+            if (category == null || category == SettingsCategory.ALARMS) SettingsCard(title = "Alarms") {
                 SettingsNavigateRow(
                     icon = Icons.Outlined.NotificationsNone,
                     title = "Silence after",
@@ -321,7 +342,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard(title = "Timers") {
+            if (category == null || category == SettingsCategory.TIMERS) SettingsCard(title = "Timers") {
                 val timerSoundSubtitle = remember(settings.timers.soundUri) {
                     when (val u = settings.timers.soundUri) {
                         null -> "Default alarm sound"
@@ -412,7 +433,7 @@ fun SettingsScreen(
                 }
             }
 
-            SettingsCard(title = "MISCELLANEOUS") {
+            if (category == null || category == SettingsCategory.MISCELLANEOUS) SettingsCard(title = "MISCELLANEOUS") {
                 SettingsNavigateRow(
                     icon = Icons.Outlined.Home,
                     title = "Default startup page",
@@ -428,7 +449,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsCard(title = "About") {
+            if (category == null || category == SettingsCategory.ABOUT) SettingsCard(title = "About") {
                 SettingsNavigateRow(
                     icon = Icons.Outlined.SystemUpdate,
                     title = "Check for updates",
@@ -613,6 +634,156 @@ fun SettingsScreen(
         )
     }
 }
+
+private enum class SettingsCategory(val title: String, val subtitle: String, val icon: ImageVector) {
+    APPEARANCE("Appearance", "Theme, colours and display", Icons.Outlined.Palette),
+    ALARMS("Alarms", "Silence, snooze and calendar", Icons.Outlined.NotificationsNone),
+    TIMERS("Timers", "Sounds, presets and vibration", Icons.Outlined.HourglassEmpty),
+    MISCELLANEOUS("Miscellaneous", "Startup page and setup", Icons.Outlined.Home),
+    ABOUT("About", "Updates and privacy", Icons.Outlined.Info),
+}
+
+// Only the expanded presentation changes; the same controls and callbacks serve both layouts.
+private val LocalSettingsCategory = staticCompositionLocalOf<SettingsCategory?> { null }
+
+@Composable
+private fun SettingsContentLayout(
+    foldedScroll: ScrollState,
+    foldedFalloff: Float,
+    modifier: Modifier = Modifier,
+    content: @Composable (SettingsCategory?) -> Unit,
+) {
+    if (!LocalAppWindowSizeInfo.current.isExpanded) {
+        Column(
+            modifier.fillMaxWidth()
+                .progressiveListEdgeMask(topStrength = foldedFalloff, bottomStrength = 0f)
+                .verticalScroll(foldedScroll)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) { content(null) }
+        return
+    }
+
+    var selected by rememberSaveable { mutableStateOf(SettingsCategory.APPEARANCE) }
+    val categoryScrolls = SettingsCategory.entries.associateWith { category ->
+        androidx.compose.runtime.key(category) { rememberScrollState() }
+    }
+    val panelShape = RoundedCornerShape(28.dp)
+    val panelBorder = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)
+    val panelBottomInset = WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+    val titleStyle = MaterialTheme.typography.titleMediumEmphasized
+    val textMeasurer = rememberTextMeasurer()
+    val titleWidth = with(LocalDensity.current) {
+        SettingsCategory.entries.maxOf {
+            textMeasurer.measure(it.title, style = titleStyle, softWrap = false, maxLines = 1).size.width
+        }.toDp()
+    }
+    BoxWithConstraints(modifier) {
+    // Reserve a complete title plus compact icon, chevron, padding and gaps on narrow windows.
+    val availableWidth = (maxWidth - 48.dp).coerceAtLeast(1.dp)
+    val navigationFraction = maxOf(.35f, (titleWidth + 110.dp) / availableWidth).coerceAtMost(.65f)
+    TwoPaneLayout(
+        modifier = Modifier.padding(bottom = 16.dp),
+        leftWeight = navigationFraction,
+        rightWeight = 1f - navigationFraction,
+        paneSpacing = 16.dp,
+        contentPaddingDp = 16.dp,
+        leftPane = {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+            val compactMenu = maxWidth < titleWidth + 140.dp
+            Column(
+                Modifier.fillMaxSize()
+                    .windowInsetsPadding(panelBottomInset)
+                    .clip(panelShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .border(1.dp, panelBorder, panelShape)
+                    .verticalScroll(rememberScrollState())
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SettingsCategory.entries.forEach { category ->
+                    val active = category == selected
+                    val background by animateColorAsState(
+                        if (active) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surface,
+                        animationSpec = tween(240), label = "settingsCategoryHighlight",
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                            .background(background)
+                            .border(1.dp, panelBorder, RoundedCornerShape(22.dp))
+                            .selectable(active, role = Role.Tab, onClick = { selected = category })
+                            .padding(horizontal = 12.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(if (compactMenu) 8.dp else 12.dp),
+                    ) {
+                        if (compactMenu) {
+                            Icon(category.icon, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        } else {
+                            SettingIcon(category.icon)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(category.title, style = titleStyle, maxLines = 1, softWrap = false,
+                                color = MaterialTheme.colorScheme.onSurface)
+                            Text(category.subtitle, style = MaterialTheme.typography.bodySmall.copy(
+                                lineBreak = LineBreak.Paragraph, hyphens = Hyphens.None),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.ChevronRight, contentDescription = null,
+                            tint = if (active) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp))
+                    }
+                }
+                Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            }
+            }
+        },
+        rightPane = {
+            // Keep the panel outline outside AnimatedContent's transition and clipping layers.
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .windowInsetsPadding(panelBottomInset)
+                    .clip(panelShape)
+                    .border(1.dp, panelBorder, panelShape),
+            ) {
+            AnimatedContent(
+                targetState = selected,
+                modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    (fadeIn(tween(220)) + slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it / 24 }) togetherWith
+                        (fadeOut(tween(140)) + slideOutVertically(tween(180)) { -it / 32 })
+                },
+                label = "settingsCategoryContent",
+            ) { category ->
+                val scroll = categoryScrolls.getValue(category)
+                val falloffDistance = with(LocalDensity.current) { 32.dp.toPx() }
+                val falloff by animateFloatAsState(
+                    (scroll.value / falloffDistance).coerceIn(0f, 1f),
+                    label = "settingsCategoryFalloff",
+                )
+                CompositionLocalProvider(LocalSettingsCategory provides category) {
+                    Column(
+                        Modifier.fillMaxSize()
+                            .progressiveListEdgeMask(topStrength = falloff, bottomStrength = 0f)
+                            .verticalScroll(scroll).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) { content(category) }
+                }
+            }
+            }
+        },
+    )
+    }
+}
+
+@Composable
+private fun Modifier.expandedSettingsTile(): Modifier = if (LocalSettingsCategory.current != null) {
+    clip(RoundedCornerShape(22.dp))
+        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .25f), RoundedCornerShape(22.dp))
+} else this
 
 @Composable
 private fun CalibrationControlRow(
@@ -877,6 +1048,23 @@ private fun SettingsCard(
     title: String,
     content: @Composable () -> Unit,
 ) {
+    val category = LocalSettingsCategory.current
+    if (category != null) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(category.icon, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                Text(category.title, style = MaterialTheme.typography.headlineMediumEmphasized,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
+            content()
+        }
+        return
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -913,6 +1101,7 @@ private fun SettingsNavigateRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .expandedSettingsTile()
             .clip(RoundedCornerShape(20.dp))
             .elasticClickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -970,6 +1159,7 @@ private fun SettingsSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .expandedSettingsTile()
             .clip(RoundedCornerShape(20.dp))
             .elasticClickable(onClick = { onCheckedChange(!checked) })
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -995,7 +1185,7 @@ private fun SettingsSwitchRow(
 
 @Composable
 private fun SettingIcon(icon: ImageVector) {
-    val dark = isSystemInDarkTheme()
+    val dark = LocalSettingsCategory.current == null && isSystemInDarkTheme()
     Box(
         modifier = Modifier
             .size(46.dp)
@@ -1018,6 +1208,7 @@ private fun SettingIcon(icon: ImageVector) {
 
 @Composable
 private fun SettingsDivider() {
+    if (LocalSettingsCategory.current != null) return
     Box(
         Modifier
             .fillMaxWidth()
@@ -1041,7 +1232,7 @@ private fun PalettePickerRow(
         else androidx.compose.material3.dynamicLightColorScheme(context)
     } else null
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().expandedSettingsTile().padding(vertical = 12.dp)) {
         Row(
             Modifier.padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,

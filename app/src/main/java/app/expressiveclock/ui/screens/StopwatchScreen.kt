@@ -9,6 +9,8 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,9 +28,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,11 +45,15 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -64,6 +73,8 @@ import app.expressiveclock.ui.luminousElasticClickable
 import app.expressiveclock.ui.theme.ClockFace
 import app.expressiveclock.core.Stopwatch
 import app.expressiveclock.core.stopwatchParts
+import app.expressiveclock.ui.responsive.LocalAppWindowSizeInfo
+import app.expressiveclock.ui.responsive.TwoPaneLayout
 
 /**
  * The stopwatch.
@@ -140,41 +151,61 @@ fun StopwatchScreen(
         onReset()
     }
 
+    if (LocalAppWindowSizeInfo.current.isExpanded) {
+        ExpandedStopwatch(
+            stopwatch = stopwatch,
+            elapsedMillis = elapsed.toMillis(),
+            faceScale = faceScale.value,
+            onToggle = onToggle,
+            onLap = onLap,
+            onReset = handleReset,
+            contentPadding = contentPadding,
+            modifier = modifier,
+        )
+        return
+    }
+
     val density = LocalDensity.current
-    var previousLapCount by remember { mutableIntStateOf(stopwatch.laps.size) }
+    val scope = rememberCoroutineScope()
+    var displayedLaps by remember { mutableStateOf(stopwatch.laps) }
+    val lapsAlpha = remember { Animatable(1f) }
 
-    LaunchedEffect(stopwatch.laps.size) {
-        val currentCount = stopwatch.laps.size
-        val prevCount = previousLapCount
-        previousLapCount = currentCount
-
-        if (currentCount > prevCount) {
-            // New lap added: Smooth spring glide down with subtle overshoot
+    LaunchedEffect(stopwatch.laps) {
+        val currentLaps = stopwatch.laps
+        if (currentLaps.size > displayedLaps.size) {
+            // Restore the original spring glide and overshoot on lap insertion.
+            lapsAlpha.snapTo(1f)
+            displayedLaps = currentLaps
             val lapRowHeightPx = with(density) { (LAP_ROW_HEIGHT + 14.dp).toPx() }
             listState.animateScrollBy(
                 value = lapRowHeightPx,
                 animationSpec = spring(
-                    dampingRatio = 0.68f, // Subtle bouncy overshoot
+                    dampingRatio = 0.68f,
                     stiffness = 320f,
                 ),
             )
-        } else if (currentCount == 0 && prevCount > 0) {
-            // Reset: Smooth spring glide back up to top (item 0) with exact distance and overshoot
-            val topItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == 0 }
-            val scrollDistance = topItem?.offset?.toFloat() ?: -listState.firstVisibleItemScrollOffset.toFloat()
-            if (abs(scrollDistance) > 1f) {
-                listState.animateScrollBy(
-                    value = scrollDistance,
-                    animationSpec = spring(
-                        dampingRatio = 0.68f, // Matching bouncy spring overshoot
-                        stiffness = 320f,
+        } else if (currentLaps.isEmpty() && displayedLaps.isNotEmpty()) {
+            // Reset: fade out lap bars while gliding scroll back up to top (item 0)
+            val fadeJob = scope.launch {
+                lapsAlpha.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(
+                        durationMillis = 280,
+                        easing = FastOutSlowInEasing,
                     ),
                 )
             }
+            listState.animateScrollToItem(index = 0, scrollOffset = 0)
+            fadeJob.join()
+            displayedLaps = emptyList()
+            lapsAlpha.snapTo(1f)
+        } else {
+            lapsAlpha.snapTo(1f)
+            displayedLaps = currentLaps
         }
     }
 
-    val effectiveBottomPadding = if (stopwatch.laps.isNotEmpty()) {
+    val effectiveBottomPadding = if (displayedLaps.isNotEmpty()) {
         contentPadding.calculateBottomPadding() + 140.dp
     } else {
         contentPadding.calculateBottomPadding()
@@ -188,7 +219,7 @@ fun StopwatchScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            userScrollEnabled = stopwatch.laps.isNotEmpty(),
+            userScrollEnabled = displayedLaps.isNotEmpty(),
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding(),
                 bottom = effectiveBottomPadding,
@@ -223,13 +254,222 @@ fun StopwatchScreen(
                     onReset = handleReset,
                 )
             }
-            if (stopwatch.laps.isNotEmpty()) {
-                items(stopwatch.laps, key = { it.index }) { lap ->
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            if (displayedLaps.isNotEmpty()) {
+                items(displayedLaps, key = { it.index }) { lap ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .graphicsLayer { alpha = lapsAlpha.value },
+                    ) {
                         LapRow(lap, fastest == lap.index, slowest == lap.index)
                     }
                 }
             }
+        }
+    }
+}
+
+/** The dial and controls stay fixed; only the right-hand lap viewport scrolls. */
+@Composable
+private fun ExpandedStopwatch(
+    stopwatch: Stopwatch,
+    elapsedMillis: Long,
+    faceScale: Float,
+    onToggle: () -> Unit,
+    onLap: () -> Unit,
+    onReset: () -> Unit,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
+    val idle = !stopwatch.running && elapsedMillis == 0L && stopwatch.laps.isEmpty()
+    val lapList = rememberLazyListState()
+    // Arm only while empty; restored laps and later insertions keep their existing motion.
+    val firstLapEntrance = remember { Animatable(if (stopwatch.laps.isEmpty()) 0f else 1f) }
+    LaunchedEffect(stopwatch.laps.isEmpty()) {
+        if (stopwatch.laps.isEmpty()) {
+            firstLapEntrance.snapTo(0f)
+        } else {
+            firstLapEntrance.animateTo(1f, spring(dampingRatio = .68f, stiffness = 320f))
+        }
+    }
+    val hasLapsBelow by remember(stopwatch.laps.size) {
+        derivedStateOf {
+            val layout = lapList.layoutInfo
+            val lastVisible = layout.visibleItemsInfo.lastOrNull()
+            lastVisible != null && (
+                lastVisible.index < stopwatch.laps.lastIndex ||
+                    lastVisible.offset + lastVisible.size > layout.viewportEndOffset
+            )
+        }
+    }
+    val bottomFalloff by animateFloatAsState(
+        targetValue = if (hasLapsBelow) 1f else 0f,
+        label = "unfoldedLapBottomFalloff",
+    )
+    LaunchedEffect(stopwatch.laps.firstOrNull()?.index) {
+        if (stopwatch.laps.isNotEmpty()) lapList.animateScrollToItem(0)
+    }
+    val controlsExpansion by animateFloatAsState(
+        targetValue = if (idle) 0f else 1f,
+        animationSpec = spring(dampingRatio = .62f, stiffness = 260f),
+        label = "unfoldedStopwatchControls",
+    )
+    TwoPaneLayout(
+        modifier = modifier.padding(
+            top = contentPadding.calculateTopPadding() + 8.dp,
+            bottom = contentPadding.calculateBottomPadding(),
+        ),
+        leftWeight = .58f,
+        rightWeight = .42f,
+        paneSpacing = 20.dp,
+        contentPaddingDp = 16.dp,
+        leftPane = {
+            BoxWithConstraints(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val diameter = minOf(maxWidth, maxHeight).coerceAtLeast(1.dp)
+                val scale = diameter / STOPWATCH_FACE_SIZE
+                // Scale the original face as a unit, including its typography and hit target.
+                Box(Modifier.size(diameter), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.requiredSize(STOPWATCH_FACE_SIZE).graphicsLayer {
+                            scaleX = scale * faceScale
+                            scaleY = scale * faceScale
+                        },
+                    ) {
+                        StopwatchFace(elapsedMillis, stopwatch.running, onToggle)
+                    }
+                }
+            }
+        },
+        rightPane = {
+            BoxWithConstraints(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                // Leave a lap viewport even in a short unfolded window; normal windows use 56dp.
+                val buttonHeight = ((maxHeight - 48.dp) / 3 - 8.dp).coerceIn(28.dp, 56.dp)
+                if (!idle || controlsExpansion > .001f) {
+                    Column(
+                        Modifier.fillMaxSize()
+                            .padding(top = buttonHeight * 3 + 26.dp)
+                            .graphicsLayer { alpha = controlsExpansion.coerceIn(0f, 1f) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (stopwatch.laps.isNotEmpty()) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f))
+                        }
+                        LazyColumn(
+                            state = lapList,
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                                .clipToBounds()
+                                .progressiveListEdgeMask(topStrength = 0f, bottomStrength = bottomFalloff),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 48.dp),
+                        ) {
+                            items(stopwatch.laps, key = { it.index }) { lap ->
+                                val placement = if (lap.index == 1) {
+                                    Modifier.animateItem(
+                                        fadeInSpec = null,
+                                        placementSpec = spring(dampingRatio = .68f, stiffness = 320f),
+                                    )
+                                } else {
+                                    Modifier.animateItem(
+                                        placementSpec = spring(dampingRatio = .68f, stiffness = 320f),
+                                    )
+                                }
+                                Box(placement) {
+                                    Box(if (lap.index == 1) Modifier.graphicsLayer {
+                                        translationY = -LAP_ROW_HEIGHT.toPx() * (1f - firstLapEntrance.value)
+                                        alpha = firstLapEntrance.value.coerceIn(0f, 1f)
+                                    } else Modifier) {
+                                        LapRow(
+                                            lap, stopwatch.fastest == lap.index, stopwatch.slowest == lap.index,
+                                            compact = true,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                ExpandedStopwatchControls(
+                    idle = idle,
+                    running = stopwatch.running,
+                    expansion = controlsExpansion,
+                    buttonHeight = buttonHeight,
+                    onToggle = onToggle,
+                    onLap = onLap,
+                    onReset = onReset,
+                )
+            }
+        },
+    )
+}
+
+/** A single reversible spatial spring connects the centred pill to the three-button stack. */
+@Composable
+private fun ExpandedStopwatchControls(
+    idle: Boolean,
+    running: Boolean,
+    expansion: Float,
+    buttonHeight: androidx.compose.ui.unit.Dp,
+    onToggle: () -> Unit,
+    onLap: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val blend = expansion.coerceIn(0f, 1f)
+    SubcomposeLayout(Modifier.fillMaxSize()) { constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val restingHeight = minOf(64.dp.roundToPx(), height)
+        val activeHeight = buttonHeight.roundToPx()
+        val animatedHeight = lerp(restingHeight, activeHeight, blend).coerceAtLeast(1)
+        val animatedWidth = (width * (.86f + .04f * blend)).roundToInt().coerceIn(0, width)
+        val restingY = (height - restingHeight) / 2f
+        val gap = 8.dp.toPx()
+        val buttonConstraints = Constraints.fixed(animatedWidth, animatedHeight)
+        val main = subcompose("startPause") {
+            WidePill(
+                text = if (idle) "Start" else if (running) "Pause" else "Resume",
+                icon = if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                onClick = onToggle,
+                height = animatedHeight.toDp(),
+                compact = true,
+                glow = false,
+            )
+        }.first().measure(buttonConstraints)
+        val satellites = if (!idle || expansion > .001f) {
+            listOf("lap", "reset").map { slot ->
+                subcompose(slot) {
+                    Box(Modifier.graphicsLayer {
+                        alpha = ((blend - .15f) / .85f).coerceIn(0f, 1f)
+                    }) {
+                        WidePill(
+                            text = if (slot == "lap") "Lap" else "Reset",
+                            icon = if (slot == "reset") Icons.Rounded.Replay else null,
+                            onClick = { if (!idle) { if (slot == "lap") onLap() else onReset() } },
+                            container = if (slot == "lap") MaterialTheme.colorScheme.surfaceContainerHighest
+                                else MaterialTheme.colorScheme.tertiaryContainer,
+                            content = if (slot == "lap") MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onTertiaryContainer,
+                            height = animatedHeight.toDp(), compact = true, glow = false,
+                        )
+                    }
+                }.first().measure(buttonConstraints)
+            }
+        } else emptyList()
+        layout(width, height) {
+            val x = (width - animatedWidth) / 2
+            satellites.forEachIndexed { index, button ->
+                val targetY = (index + 1) * (activeHeight + gap)
+                button.placeRelative(x, (restingY + (targetY - restingY) * expansion).roundToInt())
+            }
+            // Keep the primary pill above its merging siblings throughout Start and Reset.
+            main.placeRelative(x, (restingY * (1f - expansion)).roundToInt())
         }
     }
 }
@@ -589,7 +829,7 @@ private val LAP_ROW_HEIGHT = 48.dp
 private val LAP_GAP = 4.dp
 
 @Composable
-private fun LapRow(lap: Lap, isFastest: Boolean, isSlowest: Boolean) {
+private fun LapRow(lap: Lap, isFastest: Boolean, isSlowest: Boolean, compact: Boolean = false) {
     val badge = when {
         isFastest -> MaterialTheme.colorScheme.tertiaryContainer
         isSlowest -> MaterialTheme.colorScheme.errorContainer
@@ -619,11 +859,11 @@ private fun LapRow(lap: Lap, isFastest: Boolean, isSlowest: Boolean) {
             ),
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = if (compact) 10.dp else 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
         ) {
-            Surface(color = badge, shape = CircleShape, modifier = Modifier.size(28.dp)) {
+            Surface(color = badge, shape = CircleShape, modifier = Modifier.size(if (compact) 24.dp else 28.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         lap.index.toString(),
@@ -634,13 +874,13 @@ private fun LapRow(lap: Lap, isFastest: Boolean, isSlowest: Boolean) {
             }
             Text(
                 "$m:$s.$cs",
-                style = MaterialTheme.typography.titleMediumEmphasized,
+                style = if (compact) MaterialTheme.typography.labelLargeEmphasized else MaterialTheme.typography.titleMediumEmphasized,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
             )
             Text(
                 "$tm:$ts.$tcs",
-                style = MaterialTheme.typography.bodyMedium,
+                style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

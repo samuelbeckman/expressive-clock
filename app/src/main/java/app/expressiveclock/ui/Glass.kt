@@ -59,18 +59,19 @@ fun GlassBackdrop(modifier: Modifier = Modifier, content: @Composable BoxScope.(
 @Composable
 fun Modifier.glass(
     shape: Shape = RoundedCornerShape(28.dp),
-    tint: Color = Color.White.copy(alpha = .72f),
+    tint: Color = Color.White.copy(alpha = .88f),
     borderAlpha: Float = .82f,
     accent: Color? = null,
-    shadowElevation: androidx.compose.ui.unit.Dp = 18.dp,
+    shadowElevation: Dp = 14.dp,
 ): Modifier {
-    val resolvedAccent = accent ?: androidx.compose.material3.MaterialTheme.colorScheme.primary
+    val isDark = tint.luminance() < .5f
+    val resolvedAccent = accent ?: MaterialTheme.colorScheme.primary
     val shadow = if (shadowElevation > 0.dp) {
         Modifier.shadow(
             elevation = shadowElevation,
             shape = shape,
-            ambientColor = resolvedAccent.copy(alpha = if (tint.luminance() < .5f) .36f else .20f),
-            spotColor = resolvedAccent.copy(alpha = if (tint.luminance() < .5f) .50f else .30f),
+            ambientColor = if (isDark) Color.Black.copy(alpha = .50f) else resolvedAccent.copy(alpha = .12f),
+            spotColor = if (isDark) Color.Black.copy(alpha = .70f) else resolvedAccent.copy(alpha = .22f),
         )
     } else {
         Modifier
@@ -79,25 +80,25 @@ fun Modifier.glass(
     .then(shadow)
     .background(
         Brush.linearGradient(
-            colors = if (tint.luminance() < .5f) {
+            colors = if (isDark) {
                 listOf(
                     tint.copy(alpha = .94f),
-                    tint.copy(alpha = .78f),
-                    resolvedAccent.copy(alpha = .26f),
+                    tint.copy(alpha = .88f),
+                    tint.copy(alpha = .84f),
                 )
             } else {
                 listOf(
                     tint.copy(alpha = .96f),
-                    tint.copy(alpha = .78f),
-                    resolvedAccent.copy(alpha = .09f),
+                    tint.copy(alpha = .88f),
+                    tint.copy(alpha = .82f),
                 )
             },
             start = Offset(0f, 0f),
-            end = Offset(900f, 900f),
+            end = Offset(600f, 600f),
         ),
         shape,
     )
-    .border(1.25.dp, if (tint.luminance() < .5f) Color.White.copy(alpha = .16f) else Color.White.copy(alpha = borderAlpha), shape)
+    .border(1.25.dp, if (isDark) Color.White.copy(alpha = .14f) else Color.White.copy(alpha = borderAlpha), shape)
 }
 
 /**

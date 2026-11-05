@@ -489,7 +489,8 @@ private fun AlarmNameCard(label: String, onLabelChange: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(AlarmCardShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .25f), AlarmCardShape)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -551,14 +552,15 @@ private fun AlarmOptionsCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(AlarmCardShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .25f), AlarmCardShape),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(60.dp)
                 .elasticClickable(onClick = onSoundClick)
-                .padding(horizontal = 14.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OptionIconBubble(Icons.Outlined.MusicNote)
@@ -574,12 +576,15 @@ private fun AlarmOptionsCard(
             Spacer(Modifier.width(8.dp))
             Text("›", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .30f))
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .30f),
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 14.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp)
+                .height(48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OptionIconBubble(Icons.Outlined.Vibration)
@@ -632,7 +637,7 @@ private fun DeleteAlarmCard(onDelete: () -> Unit) {
 }
 
 @Composable
-private fun SheetHeaderButton(
+internal fun SheetHeaderButton(
     text: String,
     primary: Boolean,
     onClick: () -> Unit,

@@ -97,6 +97,8 @@ import app.expressiveclock.data.formatPresetLabel
 import app.expressiveclock.ui.glass
 import app.expressiveclock.ui.elasticClickable
 import app.expressiveclock.ui.luminousElasticClickable
+import app.expressiveclock.ui.responsive.LocalAppWindowSizeInfo
+import app.expressiveclock.ui.responsive.TwoPaneLayout
 import app.expressiveclock.ui.theme.ClockFace
 import app.expressiveclock.ui.theme.Numerals
 import kotlinx.coroutines.delay
@@ -126,14 +128,14 @@ fun TimersScreen(
     val remaining = timer?.remaining(nowElapsedMillis) ?: Duration.ZERO
     val isFinished = timer?.state == TimerState.FINISHED || (timer?.state == TimerState.RUNNING && remaining.isZero)
     val running = timer?.state == TimerState.RUNNING && !isFinished
+    val windowSizeInfo = LocalAppWindowSizeInfo.current
 
-    Column(
-        modifier = modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    if (windowSizeInfo.isExpanded) {
         Box(
-            Modifier.fillMaxWidth().weight(1f),
-            contentAlignment = Alignment.TopCenter,
+            modifier = modifier
+                .fillMaxSize()
+                .padding(contentPadding),
+            contentAlignment = Alignment.Center,
         ) {
             AnimatedContent(
                 modifier = Modifier.graphicsLayer { clip = false },
@@ -165,35 +167,98 @@ fun TimersScreen(
                             ) + fadeOut(tween(140))) using SizeTransform(clip = false)
                     }
                 },
-                label = "timerBody",
+                label = "timerBodyExpanded",
             ) { showingActive ->
                 if (showingActive && timer != null) {
-                    RunningTimerBody(timer, nowElapsedMillis, isFinished)
+                    ExpandedRunningTimerBody(
+                        timer = timer,
+                        nowElapsedMillis = nowElapsedMillis,
+                        isFinished = isFinished,
+                        onPauseResume = onPauseResume,
+                        onAddTen = onAddTen,
+                        onCancel = onCancel,
+                    )
                 } else {
-                    SetTimerBody(
+                    ExpandedSetTimerBody(
                         draft = draft,
                         presets = presets,
                         onDigit = onDigit,
                         onBackspace = onBackspace,
                         onResetDraft = onResetDraft,
                         onPreset = onPreset,
+                        onStart = onStart,
                     )
                 }
             }
         }
+    } else {
+        Column(
+            modifier = modifier.fillMaxSize().padding(contentPadding).padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                AnimatedContent(
+                    modifier = Modifier.graphicsLayer { clip = false },
+                    targetState = active,
+                    transitionSpec = {
+                        if (targetState) {
+                            slideInVertically(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = 420f,
+                                ),
+                                initialOffsetY = { it / 5 },
+                            ) + fadeIn(tween(220)) togetherWith
+                                (slideOutVertically(
+                                    animationSpec = tween(160),
+                                    targetOffsetY = { -it / 10 },
+                                ) + fadeOut(tween(140))) using SizeTransform(clip = false)
+                        } else {
+                            slideInVertically(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                    stiffness = 420f,
+                                ),
+                                initialOffsetY = { -it / 10 },
+                            ) + fadeIn(tween(220)) togetherWith
+                                (slideOutVertically(
+                                    animationSpec = tween(160),
+                                    targetOffsetY = { it / 5 },
+                                ) + fadeOut(tween(140))) using SizeTransform(clip = false)
+                        }
+                    },
+                    label = "timerBody",
+                ) { showingActive ->
+                    if (showingActive && timer != null) {
+                        RunningTimerBody(timer, nowElapsedMillis, isFinished)
+                    } else {
+                        SetTimerBody(
+                            draft = draft,
+                            presets = presets,
+                            onDigit = onDigit,
+                            onBackspace = onBackspace,
+                            onResetDraft = onResetDraft,
+                            onPreset = onPreset,
+                        )
+                    }
+                }
+            }
 
-        TimerControls(
-            hasTimer = active,
-            running = running,
-            isFinished = isFinished,
-            onStart = onStart,
-            onPauseResume = onPauseResume,
-            onAddTen = onAddTen,
-            onCancel = onCancel,
-        )
-        Spacer(Modifier.height(10.dp))
+            TimerControls(
+                hasTimer = active,
+                running = running,
+                isFinished = isFinished,
+                onStart = onStart,
+                onPauseResume = onPauseResume,
+                onAddTen = onAddTen,
+                onCancel = onCancel,
+            )
+            Spacer(Modifier.height(10.dp))
+        }
     }
-
 }
 
 private fun formatTimer(duration: Duration): String {
@@ -587,6 +652,253 @@ private fun TickerCell(
             }
         }
     }
+}
+
+@Composable
+private fun ExpandedSetTimerBody(
+    draft: Duration,
+    presets: List<Int>,
+    onDigit: (Char) -> Unit,
+    onBackspace: () -> Unit,
+    onResetDraft: () -> Unit,
+    onPreset: (Int) -> Unit,
+    onStart: () -> Unit,
+) {
+    var isLongPressReset by remember { mutableStateOf(false) }
+
+    LaunchedEffect(draft) {
+        if (!draft.isZero) {
+            isLongPressReset = false
+        }
+    }
+
+    TwoPaneLayout(
+        leftPane = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Keypad(
+                    onDigit = { char ->
+                        isLongPressReset = false
+                        onDigit(char)
+                    },
+                    onBackspace = {
+                        isLongPressReset = false
+                        onBackspace()
+                    },
+                    onResetDraft = {
+                        isLongPressReset = true
+                        onResetDraft()
+                    },
+                )
+                Spacer(Modifier.height(14.dp))
+                Presets(
+                    presets = presets,
+                    onPreset = { seconds ->
+                        isLongPressReset = false
+                        onPreset(seconds)
+                    },
+                )
+            }
+        },
+        rightPane = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TickerTimerReadout(
+                    text = formatTimer(draft),
+                    autoSize = true,
+                    numeralWidth = 82f,
+                    rollDirection = TimerRollDirection.UP,
+                    enableStagger = isLongPressReset,
+                )
+                Spacer(Modifier.height(32.dp))
+                Box(
+                    modifier = Modifier
+                        .width(220.dp)
+                        .height(56.dp),
+                ) {
+                    WidePill(
+                        text = "Start",
+                        icon = Icons.Rounded.PlayArrow,
+                        onClick = onStart,
+                        container = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f),
+                        content = MaterialTheme.colorScheme.onPrimaryContainer,
+                        height = 56.dp,
+                        compact = true,
+                        fillWidth = true,
+                        glow = false,
+                    )
+                }
+            }
+        },
+        leftWeight = 1.1f,
+        rightWeight = 0.9f,
+        paneSpacing = 24.dp,
+        contentPaddingDp = 12.dp,
+    )
+}
+
+@Composable
+private fun ExpandedRunningTimerBody(
+    timer: ClockTimer,
+    nowElapsedMillis: Long,
+    isFinished: Boolean = false,
+    onPauseResume: () -> Unit,
+    onAddTen: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val remaining = if (isFinished) Duration.ZERO else timer.remaining(nowElapsedMillis)
+    val progress = if (isFinished) 1f else timer.fractionLeft(nowElapsedMillis).coerceIn(0f, 1f)
+    val primary = MaterialTheme.colorScheme.primary
+    val running = timer.state == TimerState.RUNNING && !isFinished
+
+    TwoPaneLayout(
+        leftPane = {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                val circleSize = 420.dp
+                val surface = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = .96f)
+                Box(
+                    modifier = Modifier
+                        .size(circleSize)
+                        .clip(CircleShape)
+                        .background(surface)
+                        .border(1.25.dp, MaterialTheme.colorScheme.outline.copy(alpha = .12f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ExpressiveTimerRing(
+                        progress = progress,
+                        color = primary,
+                        running = running || isFinished,
+                    )
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        TickerTimerReadout(
+                            text = formatTimer(remaining),
+                            capHeight = 44.dp,
+                            scale = 0.98f,
+                            spacing = 0.5.dp,
+                            digitWidth = 42.dp,
+                            colonWidth = 12.dp,
+                            rollDirection = TimerRollDirection.DOWN,
+                            enableStagger = true,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = if (isFinished) "TIME'S UP" else when (timer.state) {
+                                TimerState.PAUSED -> "PAUSED"
+                                TimerState.RUNNING -> "TIMER"
+                                else -> "READY"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isFinished) primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f),
+                            letterSpacing = 1.8.sp,
+                        )
+                    }
+                }
+            }
+        },
+        rightPane = {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 12.dp, horizontal = 24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (isFinished) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                    ) {
+                        WidePill(
+                            text = "Stop",
+                            icon = Icons.Rounded.Close,
+                            onClick = onCancel,
+                            container = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.88f),
+                            content = MaterialTheme.colorScheme.onTertiaryContainer,
+                            height = 56.dp,
+                            compact = true,
+                            fillWidth = true,
+                            glow = false,
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                        ) {
+                            WidePill(
+                                text = if (running) "Pause" else "Resume",
+                                icon = if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                onClick = onPauseResume,
+                                height = 56.dp,
+                                compact = true,
+                                fillWidth = true,
+                                glow = false,
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                        ) {
+                            WidePill(
+                                text = "+10s",
+                                icon = Icons.Rounded.Add,
+                                onClick = onAddTen,
+                                height = 56.dp,
+                                compact = true,
+                                fillWidth = true,
+                                glow = false,
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                        ) {
+                            WidePill(
+                                text = "Cancel",
+                                icon = Icons.Rounded.Close,
+                                onClick = onCancel,
+                                height = 56.dp,
+                                outlined = true,
+                                content = MaterialTheme.colorScheme.onSurface,
+                                compact = true,
+                                fillWidth = true,
+                                glow = false,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        leftWeight = 1.1f,
+        rightWeight = 0.9f,
+        paneSpacing = 24.dp,
+        contentPaddingDp = 12.dp,
+    )
 }
 
 @Composable
