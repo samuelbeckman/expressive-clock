@@ -179,9 +179,22 @@ class ClockViewModel(app: Application) : AndroidViewModel(app) {
 
     /* ── World clock ────────────────────────────────────────────────────────────────────────── */
 
+    var newlyAddedCity by mutableStateOf<String?>(null)
+        private set
+
+    fun finishCityEntrance() { newlyAddedCity = null }
+
     fun addCity(city: WorldCity) = viewModelScope.launch {
         val current = store.cities.first()
-        if (current.none { it.zone == city.zone }) store.putCities(current + city)
+        if (current.none { it.zone == city.zone }) {
+            newlyAddedCity = city.zone.id
+            try {
+                store.putCities(current + city)
+            } catch (error: Exception) {
+                newlyAddedCity = null
+                throw error
+            }
+        }
     }
 
     fun removeCity(zone: ZoneId) = viewModelScope.launch {

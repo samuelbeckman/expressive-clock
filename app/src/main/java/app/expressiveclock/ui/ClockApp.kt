@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.expressiveclock.alarm.Notifications
 import app.expressiveclock.core.Alarm
+import app.expressiveclock.core.WorldCity
 import app.expressiveclock.data.DefaultStartupPage
 import app.expressiveclock.ui.screens.AlarmsScreen
 import app.expressiveclock.ui.screens.OnboardingScreen
@@ -72,7 +73,11 @@ import app.expressiveclock.ui.screens.SettingsScreen
 import app.expressiveclock.ui.screens.TimersScreen
 import app.expressiveclock.ui.sheets.AlarmEditSheet
 import app.expressiveclock.ui.sheets.NewAlarmPickerSheet
+import app.expressiveclock.ui.sheets.AddCitySheet
 import app.expressiveclock.ui.theme.ClockTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import app.expressiveclock.ui.responsive.LocalAppWindowSizeInfo
+import app.expressiveclock.ui.responsive.rememberAppWindowSizeInfo
 
 /** Breathing room between the dock and the navigation bar. */
 private val DOCK_CLEARANCE = 20.dp
@@ -108,13 +113,16 @@ enum class Tab(val label: String, val icon: ImageVector, val key: String) {
 fun ClockApp(startTab: String? = null, vm: ClockViewModel = viewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val isSettingsLoaded by vm.isSettingsLoaded.collectAsStateWithLifecycle()
+    val cities by vm.cities.collectAsStateWithLifecycle()
+    val windowSizeInfo = rememberAppWindowSizeInfo()
 
     ClockTheme(settings.theme) {
-        val defaultTab = when (settings.defaultStartupPage) {
-            DefaultStartupPage.ALARMS -> Tab.ALARMS
-            DefaultStartupPage.TIMER -> Tab.TIMERS
-            DefaultStartupPage.STOPWATCH -> Tab.STOPWATCH
-        }
+        CompositionLocalProvider(LocalAppWindowSizeInfo provides windowSizeInfo) {
+            val defaultTab = when (settings.defaultStartupPage) {
+                DefaultStartupPage.ALARMS -> Tab.ALARMS
+                DefaultStartupPage.TIMER -> Tab.TIMERS
+                DefaultStartupPage.STOPWATCH -> Tab.STOPWATCH
+            }
 
         var tab by rememberSaveable { mutableStateOf<Tab?>(null) }
 
@@ -132,6 +140,8 @@ fun ClockApp(startTab: String? = null, vm: ClockViewModel = viewModel()) {
 
         var editing by remember { mutableStateOf<Alarm?>(null) }
         var showNewAlarmPicker by remember { mutableStateOf(false) }
+        var showAddCitySheet by rememberSaveable { mutableStateOf(false) }
+        var selectedWorldCityZoneId by rememberSaveable { mutableStateOf<String?>(null) }
         var alarmSelectionCount by remember { mutableIntStateOf(0) }
         var clearSelectionSignal by remember { mutableIntStateOf(0) }
         var deleteClickSignal by remember { mutableIntStateOf(0) }
@@ -314,6 +324,37 @@ fun ClockApp(startTab: String? = null, vm: ClockViewModel = viewModel()) {
                             },
                             clearSelectionSignal = clearSelectionSignal,
                             deleteClickSignal = deleteClickSignal,
+                            editingAlarm = editing,
+                            showNewAlarmPicker = showNewAlarmPicker,
+                            onSaveAlarm = { alarm ->
+                                vm.saveAlarm(alarm)
+                                editing = null
+                                showNewAlarmPicker = false
+                            },
+                            onDismissInline = {
+                                editing = null
+                                showNewAlarmPicker = false
+                            },
+                            cities = cities,
+                            selectedCityZoneId = selectedWorldCityZoneId,
+                            onSelectCity = { city -> selectedWorldCityZoneId = city.zone.id },
+                            onAddCity = { showAddCitySheet = true },
+                            onShowLocalTime = { selectedWorldCityZoneId = null },
+                            showCityPicker = showAddCitySheet,
+                            cityPickerContent = {
+                                    val now by rememberWallTicker()
+                                    AddCitySheet(
+                                        existing = cities,
+                                        nowUtcMillis = now,
+                                        inline = true,
+                                        onAdd = { city ->
+                                            vm.addCity(city)
+                                            selectedWorldCityZoneId = city.zone.id
+                                            showAddCitySheet = false
+                                        },
+                                        onDismiss = { showAddCitySheet = false },
+                                    )
+                            },
                             contentPadding = body,
                         )
                     }
@@ -398,23 +439,39 @@ fun ClockApp(startTab: String? = null, vm: ClockViewModel = viewModel()) {
     }
 }
 
-        editing?.let { draft ->
-            AlarmEditSheet(
-                initial = draft,
-                weekStart = settings.alarms.weekStart,
-                onDismiss = { editing = null },
-                onSave = { vm.saveAlarm(it); editing = null },
-                onDelete = if (draft.id == 0L) null else ({ id -> vm.deleteAlarm(id) }),
-            )
+        if (!windowSizeInfo.isExpanded) {
+            editing?.let { draft ->
+                AlarmEditSheet(
+                    initial = draft,
+                    weekStart = settings.alarms.weekStart,
+                    onDismiss = { editing = null },
+                    onSave = { vm.saveAlarm(it); editing = null },
+                    onDelete = if (draft.id == 0L) null else ({ id -> vm.deleteAlarm(id) }),
+                )
+            }
+
+            if (showNewAlarmPicker) {
+                NewAlarmPickerSheet(
+                    initial = vm.blankAlarm(),
+                    weekStart = settings.alarms.weekStart,
+                    onDismiss = { showNewAlarmPicker = false },
+                    onSave = { alarm -> vm.saveAlarm(alarm); showNewAlarmPicker = false },
+                )
+            }
         }
 
-        if (showNewAlarmPicker) {
-            NewAlarmPickerSheet(
-                initial = vm.blankAlarm(),
-                weekStart = settings.alarms.weekStart,
-                onDismiss = { showNewAlarmPicker = false },
-                onSave = { alarm -> vm.saveAlarm(alarm); showNewAlarmPicker = false },
+        if (showAddCitySheet && !windowSizeInfo.isExpanded) {
+            AddCitySheet(
+                existing = cities,
+                nowUtcMillis = System.currentTimeMillis(),
+                onAdd = { city: WorldCity ->
+                    vm.addCity(city)
+                    selectedWorldCityZoneId = city.zone.id
+                    showAddCitySheet = false
+                },
+                onDismiss = { showAddCitySheet = false },
             )
+        }
         }
     }
 }

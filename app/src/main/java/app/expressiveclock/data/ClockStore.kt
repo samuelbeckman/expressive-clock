@@ -197,6 +197,7 @@ private fun Preferences.toSettings() = ClockSettings(
         weekStart = enumOr(this[stringPreferencesKey("weekStart")], WeekStart.SYSTEM),
     ),
     world = WorldClockSettings(
+        deleteTutorialShown = this[booleanPreferencesKey("worldDeleteTutorialShown")] ?: false,
         showSeconds = this[booleanPreferencesKey("showSeconds")] ?: false,
         hourFormat = enumOr(this[stringPreferencesKey("hourFormat")], HourFormat.SYSTEM),
     ),
@@ -229,6 +230,7 @@ private fun androidx.datastore.preferences.core.MutablePreferences.writeSettings
     this[intPreferencesKey("snooze")] = s.alarms.snoozeMinutes
     this[stringPreferencesKey("weekStart")] = s.alarms.weekStart.name
     this[booleanPreferencesKey("showSeconds")] = s.world.showSeconds
+    this[booleanPreferencesKey("worldDeleteTutorialShown")] = s.world.deleteTutorialShown
     this[stringPreferencesKey("hourFormat")] = s.world.hourFormat.name
     s.timers.soundUri
         ?.let { this[stringPreferencesKey("timerSound")] = it }

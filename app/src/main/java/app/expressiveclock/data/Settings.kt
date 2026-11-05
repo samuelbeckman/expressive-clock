@@ -28,6 +28,7 @@ data class AlarmSettings(
 )
 
 data class WorldClockSettings(
+    val deleteTutorialShown: Boolean = false,
     val showSeconds: Boolean = false,
     val hourFormat: HourFormat = HourFormat.SYSTEM,
 )
