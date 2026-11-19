@@ -22,6 +22,9 @@
     <!-- Runtime-requested from API 33. Refusing it costs the notifications, not the alarm. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- API Level 36+ -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
     <!-- The ringer: looping audio and a repeating waveform with the screen off. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
