@@ -20,7 +20,8 @@ android {
 
     /**
      * Release signing configuration, loading credentials from root-level `keystore.properties` or Gradle properties.
-     * Strict enforcement: fails release builds cleanly if properties or keystore file are missing.
+     * Decoupled to allow contributors, forks, and CI to run debug builds, lint, or tests without private release keystore files.
+     * When valid release credentials are not present, release builds fall back to debug signing.
      */
     val keystorePropsFile = rootProject.file("keystore.properties")
     val keystoreProps = Properties()
@@ -30,31 +31,31 @@ android {
         }
     }
 
+    val storePath = keystoreProps.getProperty("clockStoreFile")
+        ?: (findProperty("clockStoreFile") as String?)
+    val storeFileObj = storePath?.let { rootProject.file(it) }
+    val hasValidKeystore = storeFileObj != null && storeFileObj.exists()
+
     signingConfigs {
-        create("release") {
-            val storePath = keystoreProps.getProperty("clockStoreFile")
-                ?: (findProperty("clockStoreFile") as String?)
-                ?: error("Missing 'clockStoreFile' in keystore.properties or ~/.gradle/gradle.properties")
-            val storeFileObj = rootProject.file(storePath)
-            if (!storeFileObj.exists()) {
-                error("Keystore file '$storePath' defined by 'clockStoreFile' does not exist.")
+        if (hasValidKeystore) {
+            create("release") {
+                storeFile = storeFileObj
+                storePassword = keystoreProps.getProperty("clockStorePassword")
+                    ?: (findProperty("clockStorePassword") as String?)
+                    ?: error("Missing 'clockStorePassword' in keystore.properties or ~/.gradle/gradle.properties")
+                keyAlias = keystoreProps.getProperty("clockKeyAlias")
+                    ?: (findProperty("clockKeyAlias") as String?)
+                    ?: error("Missing 'clockKeyAlias' in keystore.properties or ~/.gradle/gradle.properties")
+                keyPassword = keystoreProps.getProperty("clockKeyPassword")
+                    ?: (findProperty("clockKeyPassword") as String?)
+                    ?: error("Missing 'clockKeyPassword' in keystore.properties or ~/.gradle/gradle.properties")
             }
-            storeFile = storeFileObj
-            storePassword = keystoreProps.getProperty("clockStorePassword")
-                ?: (findProperty("clockStorePassword") as String?)
-                ?: error("Missing 'clockStorePassword' in keystore.properties or ~/.gradle/gradle.properties")
-            keyAlias = keystoreProps.getProperty("clockKeyAlias")
-                ?: (findProperty("clockKeyAlias") as String?)
-                ?: error("Missing 'clockKeyAlias' in keystore.properties or ~/.gradle/gradle.properties")
-            keyPassword = keystoreProps.getProperty("clockKeyPassword")
-                ?: (findProperty("clockKeyPassword") as String?)
-                ?: error("Missing 'clockKeyPassword' in keystore.properties or ~/.gradle/gradle.properties")
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

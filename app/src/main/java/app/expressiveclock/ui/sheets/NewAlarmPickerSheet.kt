@@ -47,6 +47,8 @@ fun NewAlarmPickerSheet(
     var editingHour by rememberSaveable { mutableStateOf(true) }
     var label by rememberSaveable { mutableStateOf(initial.label.ifBlank { "Alarm" }) }
     var days by remember { mutableStateOf(initial.days) }
+    var specificDateStr by rememberSaveable { mutableStateOf(initial.specificDate?.toString()) }
+    val specificDate = specificDateStr?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
     var vibrate by rememberSaveable { mutableStateOf(initial.vibrate) }
     var soundUri by rememberSaveable { mutableStateOf(initial.soundUri) }
 
@@ -79,12 +81,20 @@ fun NewAlarmPickerSheet(
             vibrate = vibrate,
             soundLabel = soundLabel,
             showDelete = false,
+            specificDate = specificDate,
+            onSpecificDateChange = { date ->
+                specificDateStr = date?.toString()
+                if (date != null) days = emptySet()
+            },
             onHourChange = { hour = it },
             onMinuteChange = { minute = it },
             onPmChange = { pm = it },
             onEditingHourChange = { editingHour = it },
             onLabelChange = { label = it },
-            onToggleDay = { day -> days = if (day in days) days - day else days + day },
+            onToggleDay = { day ->
+                specificDateStr = null
+                days = if (day in days) days - day else days + day
+            },
             onVibrateChange = { vibrate = it },
             onSoundClick = openSoundSelector,
             onCancel = {
@@ -96,6 +106,7 @@ fun NewAlarmPickerSheet(
                     time = LocalTime.of(saveHour, minute),
                     label = label.trim(),
                     days = days,
+                    specificDate = specificDate,
                     enabled = true,
                     vibrate = vibrate,
                     soundUri = soundUri,

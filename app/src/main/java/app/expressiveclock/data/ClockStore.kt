@@ -290,6 +290,7 @@ private fun encodeAlarms(list: List<Alarm>) = JSONArray().apply {
                 .apply { a.snoozedUntilMillis?.let { put("snoozed", it) } }
                 .apply { a.skippedOccurrenceMillis?.let { put("skippedOccurrence", it) } }
                 .apply { a.skippedOccurrenceDate?.let { put("skippedDate", it.toString()) } }
+                .apply { a.specificDate?.let { put("specificDate", it.toString()) } }
         )
     }
 }.toString()
@@ -310,6 +311,7 @@ private fun parseAlarms(s: String): List<Alarm> = runCatching {
             snoozedUntilMillis = o.optLong("snoozed").takeIf { it > 0L },
             skippedOccurrenceMillis = o.optLong("skippedOccurrence").takeIf { it > 0L },
             skippedOccurrenceDate = runCatching { java.time.LocalDate.parse(o.optString("skippedDate")) }.getOrNull(),
+            specificDate = runCatching { java.time.LocalDate.parse(o.optString("specificDate")) }.getOrNull(),
         )
     }
 }.getOrDefault(emptyList())

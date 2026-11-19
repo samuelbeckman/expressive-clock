@@ -36,8 +36,10 @@ data class Alarm(
     val skippedOccurrenceMillis: Long? = null,
     /** Retains the consumed calendar occurrence when the system zone changes. */
     val skippedOccurrenceDate: LocalDate? = null,
+    /** Specific calendar date to sound once, overriding weekly recurrence if set. */
+    val specificDate: LocalDate? = null,
 ) {
-    val isOneShot: Boolean get() = days.isEmpty()
+    val isOneShot: Boolean get() = days.isEmpty() || specificDate != null
 
     /** The next instant this alarm would sound, or null when it is off. */
     fun nextFire(now: ZonedDateTime): ZonedDateTime? {
@@ -45,6 +47,14 @@ data class Alarm(
         snoozedUntilMillis?.let { at ->
             val snooze = java.time.Instant.ofEpochMilli(at).atZone(now.zone)
             if (snooze.isAfter(now)) return snooze
+        }
+        if (specificDate != null) {
+            val target = specificDate.atTime(time).atZone(now.zone)
+            return target.takeIf {
+                it.isAfter(now) &&
+                it.toInstant().toEpochMilli() != skippedOccurrenceMillis &&
+                it.toLocalDate() != skippedOccurrenceDate
+            }
         }
         val todayAt = now.with(time).withSecond(0).withNano(0)
         if (isOneShot) return (if (todayAt.isAfter(now)) todayAt else todayAt.plusDays(1))
@@ -57,6 +67,16 @@ data class Alarm(
 
     /** The words the app prints: "Every day" / "Weekdays" / "Mon, Wed, Fri" / "Tomorrow". */
     fun repeatLabel(now: LocalDate = LocalDate.now()): String = when {
+        specificDate != null -> when (specificDate) {
+            now -> "Today"
+            now.plusDays(1) -> "Tomorrow"
+            else -> {
+                val yearSuffix = if (specificDate.year != now.year) ", ${specificDate.year}" else ""
+                val monthName = specificDate.month.name.lowercase().replaceFirstChar(Char::uppercase).take(3)
+                val dayName = specificDate.dayOfWeek.name.lowercase().replaceFirstChar(Char::uppercase).take(3)
+                "$dayName, $monthName ${specificDate.dayOfMonth}$yearSuffix"
+            }
+        }
         isOneShot -> "Once"
         days.size == 7 -> "Every day"
         days == WEEKDAYS -> "Weekdays"

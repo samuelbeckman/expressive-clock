@@ -46,4 +46,34 @@ class UpcomingAlarmTest {
         assertEquals(LocalDate.of(2026,3,15),weekly.nextFire(before)!!.toLocalDate())
         assertEquals(LocalTime.of(3,30),weekly.nextFire(before)!!.toLocalTime())
     }
+
+    @Test fun specificDateFiresOnTargetCalendarDate() {
+        val targetDate = now.toLocalDate().plusDays(14)
+        val dateAlarm = alarm.copy(days = emptySet(), specificDate = targetDate)
+        assertTrue(dateAlarm.isOneShot)
+        val next = dateAlarm.nextFire(now)
+        assertNotNull(next)
+        assertEquals(targetDate, next!!.toLocalDate())
+        assertEquals(LocalTime.of(7, 0), next.toLocalTime())
+    }
+
+    @Test fun pastSpecificDateDoesNotFire() {
+        val pastDate = now.toLocalDate().minusDays(1)
+        val dateAlarm = alarm.copy(days = emptySet(), specificDate = pastDate)
+        assertNull(dateAlarm.nextFire(now))
+    }
+
+    @Test fun specificDateSkippedOccurrenceDoesNotFire() {
+        val targetDate = now.toLocalDate().plusDays(3)
+        val dateAlarm = alarm.copy(days = emptySet(), specificDate = targetDate)
+        val at = dateAlarm.nextFire(now)!!.toInstant().toEpochMilli()
+        assertNull(dateAlarm.copy(skippedOccurrenceMillis = at).nextFire(now))
+        assertNull(dateAlarm.copy(skippedOccurrenceDate = targetDate).nextFire(now))
+    }
+
+    @Test fun specificDateRepeatLabelFormatting() {
+        val today = now.toLocalDate()
+        assertEquals("Today", alarm.copy(specificDate = today).repeatLabel(today))
+        assertEquals("Tomorrow", alarm.copy(specificDate = today.plusDays(1)).repeatLabel(today))
+    }
 }
