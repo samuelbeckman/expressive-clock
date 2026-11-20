@@ -457,6 +457,7 @@ private fun ExpandedStopwatchControls(
                             text = if (slot == "lap") "Lap" else "Reset",
                             icon = if (slot == "reset") Icons.Rounded.Replay else null,
                             onClick = { if (!idle) { if (slot == "lap") onLap() else onReset() } },
+                            enabled = slot != "lap" || running,
                             container = if (slot == "lap") MaterialTheme.colorScheme.surfaceContainerHighest
                                 else MaterialTheme.colorScheme.tertiaryContainer,
                             content = if (slot == "lap") MaterialTheme.colorScheme.onSurface
@@ -782,7 +783,7 @@ private fun StopwatchControls(
                 Box(Modifier.graphicsLayer { alpha = split }) {
                     Row(horizontalArrangement = Arrangement.spacedBy(GAP * split)) {
                         Box(Modifier.weight(1f)) {
-                            WidePill(text = "Lap", onClick = onLap, height = ROW_HEIGHT, compact = true, glow = false)
+                            WidePill(text = "Lap", onClick = onLap, height = ROW_HEIGHT, compact = true, glow = false, enabled = running)
                         }
                         Box(Modifier.weight(1f)) {
                             WidePill(
