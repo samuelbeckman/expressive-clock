@@ -22,19 +22,30 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
@@ -124,10 +135,13 @@ fun AlarmPickerSheetContent(
     onCancel: () -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
+    specificDate: LocalDate? = null,
+    onSpecificDateChange: (LocalDate?) -> Unit = {},
     modal: Boolean = false,
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val density = LocalDensity.current
+    var showDatePicker by remember { mutableStateOf(false) }
     // Material's modal content insets already include the animated IME. Subtract that
     // same inset from the body cap so the sheet keeps a visible top margin instead of
     // growing to screen height. The drag handle in New/Edit Alarm is exactly 32dp.
@@ -251,10 +265,59 @@ fun AlarmPickerSheetContent(
             weekOrder.forEach { day ->
                 DayChip(
                     label = day.getDisplayName(DayTextStyle.NARROW, locale),
-                    selected = day in days,
+                    selected = day in days && specificDate == null,
                     modifier = Modifier.weight(1f),
-                    onClick = { onToggleDay(day) },
+                    onClick = {
+                        onSpecificDateChange(null)
+                        onToggleDay(day)
+                    },
                 )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        SpecificDateScheduleRow(
+            specificDate = specificDate,
+            onScheduleClick = { showDatePicker = true },
+            onClear = { onSpecificDateChange(null) },
+        )
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        if (showDatePicker) {
+            val initialEpoch = specificDate?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+                ?: (System.currentTimeMillis() + 86_400_000L)
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = initialEpoch,
+                selectableDates = object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                        val todayStart = LocalDate.now().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+                        return utcTimeMillis >= todayStart
+                    }
+                }
+            )
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { utcMillis ->
+                                val chosen = Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC).toLocalDate()
+                                onSpecificDateChange(chosen)
+                            }
+                            showDatePicker = false
+                        }
+                    ) {
+                        Text("Done")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
         }
 
@@ -702,5 +765,66 @@ internal fun SheetHeaderButton(
             style = MaterialTheme.typography.labelLargeEmphasized,
             color = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
         )
+    }
+}
+
+@Composable
+private fun SpecificDateScheduleRow(
+    specificDate: LocalDate?,
+    onScheduleClick: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Surface(
+        onClick = onScheduleClick,
+        shape = RoundedCornerShape(16.dp),
+        color = if (specificDate != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().height(44.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CalendarToday,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (specificDate != null) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = if (specificDate != null) {
+                        val yearSuffix = if (specificDate.year != LocalDate.now().year) ", ${specificDate.year}" else ""
+                        val monthName = specificDate.month.name.lowercase().replaceFirstChar(Char::uppercase).take(3)
+                        val dayName = specificDate.dayOfWeek.name.lowercase().replaceFirstChar(Char::uppercase).take(3)
+                        "Date: $dayName, $monthName ${specificDate.dayOfMonth}$yearSuffix"
+                    } else "Schedule specific date",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (specificDate != null) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (specificDate != null) {
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = "Clear specific date",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+            } else {
+                Text(
+                    text = "Pick",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
     }
 }

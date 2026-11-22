@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -75,7 +76,10 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.AlarmOff
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Snooze
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -237,6 +241,7 @@ fun AlarmsScreen(
     modifier: Modifier = Modifier,
     widePane: Boolean = false,
 ) {
+    val nowDateTime = rememberMinuteTicker()
     // Track how many cards are revealed during first-launch post-onboarding stagger
     var visibleCardsCount by remember(staggerEntranceToken) {
         mutableIntStateOf(if (staggerEntranceToken > 0) 0 else Int.MAX_VALUE)
@@ -383,6 +388,17 @@ fun AlarmsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        item(
+                            span = { GridItemSpan(maxLineSpan) },
+                            key = "next_alarm_countdown_header",
+                        ) {
+                            NextAlarmCountdownCard(
+                                alarms = displayedAlarms,
+                                now = nowDateTime,
+                                modifier = Modifier.padding(bottom = 2.dp),
+                            )
+                        }
+
                         itemsIndexed(displayedAlarms, key = { _, alarm -> alarm.id }) { index, alarm ->
                             val isCardVisible = alarm.id !in exitingAlarmIds && (index < visibleCardsCount)
                             AnimatedVisibility(
@@ -1033,7 +1049,11 @@ private fun AlarmTile(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        DayLetters(alarm, order, animatedInk, (tileWidth - inset * 2 - 60.dp).coerceIn(1.dp, DAY_BLOCK_DP.dp))
+                        if (alarm.specificDate != null) {
+                            SpecificDateBadge(alarm, animatedInk)
+                        } else {
+                            DayLetters(alarm, order, animatedInk, (tileWidth - inset * 2 - 60.dp).coerceIn(1.dp, DAY_BLOCK_DP.dp))
+                        }
                         Switch(
                             checked = armed,
                             modifier = Modifier.graphicsLayer {
@@ -1686,5 +1706,135 @@ private fun SleepingAlarmClockIcon(
             progress = z2Progress,
             maxRotation = -4.0f,
         )
+    }
+}
+
+@Composable
+private fun rememberMinuteTicker(): java.time.ZonedDateTime {
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    var now by remember { mutableStateOf(java.time.ZonedDateTime.now(zone)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val current = java.time.ZonedDateTime.now(zone)
+            now = current
+            val secondsUntilNextMinute = 60 - current.second
+            val millisUntilNextMinute = secondsUntilNextMinute * 1000L - (current.nano / 1_000_000L) + 50L
+            delay(millisUntilNextMinute.coerceAtLeast(1000L))
+        }
+    }
+    return now
+}
+
+@Composable
+private fun SpecificDateBadge(alarm: Alarm, ink: Color) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = ink.copy(alpha = 0.12f),
+    ) {
+        Text(
+            text = alarm.repeatLabel(),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = ink,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun NextAlarmCountdownCard(
+    alarms: List<Alarm>,
+    now: java.time.ZonedDateTime,
+    modifier: Modifier = Modifier,
+) {
+    val nextAlarmEntry = remember(alarms, now) {
+        alarms.filter { it.enabled }
+            .mapNotNull { alarm -> alarm.nextFire(now)?.let { nextTime -> alarm to nextTime } }
+            .minByOrNull { it.second }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = if (nextAlarmEntry != null) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (nextAlarmEntry != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        ),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (nextAlarmEntry != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        else MaterialTheme.colorScheme.surfaceContainerHighest
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (nextAlarmEntry != null) {
+                        if (nextAlarmEntry.first.snoozedUntilMillis != null) Icons.Outlined.Snooze
+                        else Icons.Outlined.Alarm
+                    } else Icons.Outlined.AlarmOff,
+                    contentDescription = null,
+                    tint = if (nextAlarmEntry != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                if (nextAlarmEntry != null) {
+                    val (alarm, nextTime) = nextAlarmEntry
+                    val remaining = app.expressiveclock.core.humanUntil(now, nextTime)
+                    Text(
+                        text = if (alarm.snoozedUntilMillis != null) "Snoozed • in $remaining"
+                               else "Alarm in $remaining",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    val labelPrefix = if (alarm.label.isNotBlank()) "${alarm.label} • " else ""
+                    val isToday = nextTime.toLocalDate() == now.toLocalDate()
+                    val isTomorrow = nextTime.toLocalDate() == now.toLocalDate().plusDays(1)
+                    val dayPrefix = when {
+                        isToday -> "Today"
+                        isTomorrow -> "Tomorrow"
+                        else -> nextTime.format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d"))
+                    }
+                    val timeString = nextTime.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+                    Text(
+                        text = "$labelPrefix$dayPrefix at $timeString",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                } else {
+                    Text(
+                        text = "No upcoming alarms",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Turn on an alarm to see the countdown here",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }

@@ -18,4 +18,11 @@ class AlarmEditsTest {
         val off=skipped.copy(enabled=false)
         assertNull(off.copy(enabled=true).preservingDismissal(off).skippedOccurrenceMillis)
     }
+    @Test fun specificDateEditsPreserveDismissalOnlyWhenDateUnchanged() {
+        val dateAlarm = skipped.copy(specificDate = LocalDate.of(2026, 12, 1))
+        val sameDateEdited = dateAlarm.copy(label = "Updated").preservingDismissal(dateAlarm)
+        assertEquals(dateAlarm.skippedOccurrenceDate, sameDateEdited.skippedOccurrenceDate)
+        val changedDate = dateAlarm.copy(specificDate = LocalDate.of(2026, 12, 2)).preservingDismissal(dateAlarm)
+        assertNull(changedDate.skippedOccurrenceDate)
+    }
 }

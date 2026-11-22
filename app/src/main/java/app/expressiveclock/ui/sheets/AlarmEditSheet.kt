@@ -37,6 +37,8 @@ fun AlarmEditSheet(
     var editingHour by rememberSaveable(initial.id) { mutableStateOf(true) }
     var label by rememberSaveable(initial.id) { mutableStateOf(initial.label) }
     var days by remember(initial.id) { mutableStateOf(initial.days) }
+    var specificDateStr by rememberSaveable(initial.id) { mutableStateOf(initial.specificDate?.toString()) }
+    val specificDate = specificDateStr?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
     var vibrate by rememberSaveable(initial.id) { mutableStateOf(initial.vibrate) }
     var soundUri by rememberSaveable(initial.id) { mutableStateOf(initial.soundUri) }
 
@@ -69,12 +71,20 @@ fun AlarmEditSheet(
             vibrate = vibrate,
             soundLabel = soundLabel,
             showDelete = onDelete != null,
+            specificDate = specificDate,
+            onSpecificDateChange = { date ->
+                specificDateStr = date?.toString()
+                if (date != null) days = emptySet()
+            },
             onHourChange = { hour = it },
             onMinuteChange = { minute = it },
             onPmChange = { pm = it },
             onEditingHourChange = { editingHour = it },
             onLabelChange = { label = it },
-            onToggleDay = { day -> days = if (day in days) days - day else days + day },
+            onToggleDay = { day ->
+                specificDateStr = null
+                days = if (day in days) days - day else days + day
+            },
             onVibrateChange = { vibrate = it },
             onSoundClick = openSoundSelector,
             onCancel = {
@@ -90,6 +100,7 @@ fun AlarmEditSheet(
                     time = LocalTime.of(saveHour, minute),
                     label = label.trim(),
                     days = days,
+                    specificDate = specificDate,
                     enabled = true,
                     vibrate = vibrate,
                     soundUri = soundUri,
