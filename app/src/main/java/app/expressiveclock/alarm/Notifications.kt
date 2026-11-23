@@ -9,7 +9,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.SystemClock
-import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -164,25 +163,6 @@ object Notifications {
 
     fun hideStopwatch(context: Context) {
         NotificationManagerCompat.from(context).cancel(ID_STOPWATCH)
-    }
-
-    /* --- Helpers -------------------------------------------------------------------------- -- */
-
-    /** True if Android 16 will actually promote our notifications. */
-    fun canPromote(context: Context): Boolean =
-        Build.VERSION.SDK_INT >= 36 &&
-                context.getSystemService(NotificationManager::class.java)
-                    .canPostPromotedNotifications()
-
-    /** Sends the user to the system setting where they can enable Live Updates. */
-    fun openPromotionSettings(context: Context) {
-        if (Build.VERSION.SDK_INT >= 36) {
-            context.startActivity(
-                Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-        }
     }
 
     /* ── Plumbing ───────────────────────────────────────────────────────────────────────────── */
