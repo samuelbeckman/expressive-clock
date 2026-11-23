@@ -22,7 +22,12 @@
     <!-- Runtime-requested from API 33. Refusing it costs the notifications, not the alarm. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- API Level 36+ -->
+    <!--
+        Android 16 (API 36)+ Live Updates. Lets the running timer and stopwatch notifications ask to be
+        promoted (NotificationCompat.Builder.setRequestPromotedOngoing), so supporting systems show
+        them as a Live Update / Live Alert with a status-bar chip instead of a plain notification.
+        Older versions ignore this permission and the notifications look exactly as before.
+    -->
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <!-- The ringer: looping audio and a repeating waveform with the screen off. -->
