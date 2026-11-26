@@ -310,6 +310,7 @@ fun TimersScreen(
                 hasTimer = active,
                 running = running,
                 isFinished = isFinished,
+                startEnabled = rememberDelayedEnabled(!draft.isZero),
                 onStart = onStart,
                 onPauseResume = pauseResume,
                 onAddTen = onAddTen,
@@ -754,6 +755,7 @@ private fun ExpandedSetTimerBody(
                         compact = true,
                         fillWidth = true,
                         glow = false,
+                        enabled = rememberDelayedEnabled(!draft.isZero),
                     )
                 }
             }
@@ -1320,11 +1322,31 @@ private fun buildSquigglePath(
     return path
 }
 
+/**
+ * Disables immediately but enables only after [delayMs]. A preset tap fills the draft and starts the
+ * timer in the same breath, so without this the Start button flashes enabled just before the view
+ * switches to the running timer.
+ */
+@Composable
+private fun rememberDelayedEnabled(target: Boolean, delayMs: Long = 100L): Boolean {
+    var value by remember { mutableStateOf(target) }
+    LaunchedEffect(target) {
+        if (target) {
+            delay(delayMs)
+            value = true
+        } else {
+            value = false
+        }
+    }
+    return value
+}
+
 @Composable
 private fun TimerControls(
     hasTimer: Boolean,
     running: Boolean,
     isFinished: Boolean = false,
+    startEnabled: Boolean = true,
     onStart: () -> Unit,
     onPauseResume: () -> Unit,
     onAddTen: () -> Unit,
@@ -1423,6 +1445,7 @@ private fun TimerControls(
                         contentPaddingH = 28.dp,
                         contentAlpha = label,
                         glow = false,
+                        enabled = startEnabled,
                     )
                 }
             }.first().measure(Constraints.fixed(w, h))

@@ -184,17 +184,20 @@ fun WidePill(
     contentPaddingH: Dp = if (compact) 10.dp else 24.dp,
     contentAlpha: Float = 1f,
     glow: Boolean = true,
+    enabled: Boolean = true,
 ) {
     Box(
         modifier = modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .height(height)
             .luminousElasticClickable(
+                enabled = enabled,
                 shape = CircleShape,
                 maxStretchPercent = 0.09f,
                 maxTranslateDp = 2.4.dp,
                 onClick = onClick,
             )
+            .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
             .clip(CircleShape)
             .glass(
                 CircleShape,

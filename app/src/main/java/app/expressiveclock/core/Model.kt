@@ -204,13 +204,13 @@ data class Stopwatch(
     val slowest: Int? get() = laps.maxByOrNull { it.split }?.index?.takeIf { laps.size > 1 }
 }
 
-/** `PT1H2M3S` → `1:02:03`, and under an hour → `12:34`. What every screen prints. */
+/** `PT1H2M3S` → `01:02:03`, and under an hour → `12:34` (zero-padded to match the running chronometer). */
 fun Duration.clockFormat(withHours: Boolean = false): String {
     val total = seconds.coerceAtLeast(0)
     val h = total / 3600
     val m = (total % 3600) / 60
     val s = total % 60
-    return if (h > 0 || withHours) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    return if (h > 0 || withHours) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }
 
 /** The stopwatch prints hundredths; anything slower would look frozen. */
