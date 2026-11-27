@@ -1,14 +1,17 @@
 package app.expressiveclock.alarm
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import app.expressiveclock.MainActivity
 import app.expressiveclock.R
@@ -105,7 +108,11 @@ object Notifications {
             b.setUsesChronometer(false)
                 .setShowWhen(false)
                 .setContentText("Paused · ${timer.pausedRemaining.clockFormat()}")
+                // The status-bar chip / Live Alert shows this instead of the content text, which
+                // it would otherwise truncate to just "Paused".
+                .setShortCriticalText(timer.pausedRemaining.clockFormat())
         }
+        b.setRequestPromotedOngoing(true)
         post(context, ID_TIMER, b.build())
     }
 
@@ -146,8 +153,11 @@ object Notifications {
         } else {
             b.setUsesChronometer(false)
                 .setShowWhen(false)
-                .setContentText(sw.accumulated.clockFormat(withHours = true))
+                .setContentText("Paused · ${sw.accumulated.clockFormat(withHours = false)}")
+                // it would otherwise just show "Stopwatch" when paused.
+                .setShortCriticalText(sw.accumulated.clockFormat(withHours = false))
         }
+        b.setRequestPromotedOngoing(true)
         post(context, ID_STOPWATCH, b.build())
     }
 
@@ -189,6 +199,13 @@ object Notifications {
      * should: the alarm still rings, it is just not announced.
      */
     private fun post(context: Context, id: Int, n: android.app.Notification) {
+        // The explicit permission check is what Lint recognises; `areNotificationsEnabled` still
+        // covers the user switching notifications off in system settings, which is not a permission.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) return
+
         val nm = NotificationManagerCompat.from(context)
         if (!nm.areNotificationsEnabled()) return
         try { nm.notify(id, n) }
